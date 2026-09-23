@@ -1,31 +1,23 @@
 import { useNavigate } from 'react-router-dom'
-import { useApp } from '../store/AppContext'
 import { LABELS } from '../api/mockData'
-import { Money, StatusBadge } from './ui'
+import { Money } from './ui'
 
-export default function MeasureCard({ m }) {
+export default function MeasureCard({ measure }) {
   const nav = useNavigate()
-  const { support } = useApp()
-  const st = support[m.id]
-
   return (
-    <article className="card mcard" onClick={() => nav(`/measure/${m.id}`)}>
+    <button type="button" className="mcard card" onClick={() => nav(`/measure/${measure.id}`)}>
       <div className="mcard__top">
-        <span className="chip chip--level">{LABELS.level[m.level]}</span>
-        <span className="chip">{LABELS.supportType[m.supportType]}</span>
-        {st && <StatusBadge status={st.status} />}
+        {measure.level && <span className="chip chip--level">{LABELS.level[measure.level] || measure.level}</span>}
+        {measure.supportType && <span className="chip">{LABELS.supportType[measure.supportType] || measure.supportType}</span>}
+        <span className="chip chip--blue">{LABELS.recipient[measure.recipient] || measure.recipient || 'Семье'}</span>
       </div>
-      <h3 className="mcard__title">{m.name}</h3>
-      <Money amount={m.amount} frequency={m.frequency} />
-      {m.reason && <div className="mcard__reason">Подходит: {m.reason}</div>}
+      <h3 className="mcard__title">{measure.name}</h3>
+      <p className="mcard__description">{measure.description}</p>
+      <Money amount={measure.amount} frequency={measure.frequency} />
       <div className="mcard__foot">
-        <button className="btn btn--ghost btn--sm" onClick={(e) => { e.stopPropagation(); nav(`/measure/${m.id}`) }}>Подробнее</button>
-        {m.applicationRequired && (m.actionUrl || m.channel === 'MFC') && (
-          <button className="btn btn--primary btn--sm" onClick={(e) => { e.stopPropagation(); nav(`/measure/${m.id}`) }}>
-            {m.channel === 'MFC' ? 'Как подать' : 'Подать'}
-          </button>
-        )}
+        <span>{measure.channel ? `Куда: ${LABELS.channel[measure.channel] || measure.channel}` : 'Подробнее'}</span>
+        <span className="arrow">→</span>
       </div>
-    </article>
+    </button>
   )
 }

@@ -1,44 +1,72 @@
-# Забота: Личный Кабинет — фронт мини-приложения MAX
+# Забота — frontend
 
-Мини-приложение для семей участников СВО: короткий опрос → персональный подбор мер
-поддержки (rules-engine) → карточки мер с документами и основаниями → личный кабинет
-со статусами оформления (NOT_APPLIED / SUBMITTED / APPROVED / RECEIVED) → PDF-сводка → обращение в МФЦ.
+Frontend мини-приложения «Забота» с анкетой, персональным подбором мер поддержки и локальным кабинетом пользователя.
 
-## Запуск (демо-режим, без бэкенда)
+## Что изменено
 
-    npm install
-    npm run dev          # http://localhost:5173
+- Убрана авторизация через MAX и сбор данных MAX-аккаунта.
+- На входе используются только имя и фамилия.
+- Коды статусов военнослужащего синхронизированы с текущими значениями PostgreSQL.
+- Реальные UUID Татарстана, Казани, супруги, школы и военных статусов закреплены в `src/api/ids.js`.
+- Старые коды `CONTRACT`, `VETERAN`, `DECEASED` поддерживаются только для миграции старых локальных профилей и не используются интерфейсом.
+- Из интерфейса убраны технические выражения правил и служебные сообщения.
+- Для образовательных организаций не создаётся фиктивная ссылка: показывается нормальное человеческое описание способа обращения.
+- Добавлена обработка сетевых ошибок и тайм-аута API.
+- Исправлено формирование текущей даты без сдвига из-за UTC.
+- Улучшена работа с disabled-значениями и недоступными UUID справочников.
+- Профиль и статусы мер сохраняются локально.
 
-В демо-режиме (VITE_USE_MOCK=true) работает встроенный каталог мер и клиентский
-rules-engine (AND внутри condition_group, OR между группами).
+## Backend
 
-## Переменные окружения
+Frontend обращается к:
 
-| Переменная         | Значение                                   |
-|--------------------|--------------------------------------------|
-| VITE_API_BASE_URL  | Базовый URL бэкенда (пусто — не нужен)     |
-| VITE_USE_MOCK      | true — моки; false — ходить в бэкенд       |
+`POST /api/supports/search`
 
-## Контракт API бэкенда
+Тело запроса соответствует `SupportSearchRequest` текущего backend.
 
-POST /api/match — тело = анкета (familyRelation, militaryStatus, region,
-municipality, children[{birthDate, educationLevel, grade, disability, disabilityGroup, fullTime}],
-injury, disability, disabilityGroup, housingProblem, gasificationNeeded, pregnancy,
-incomeCategory, employmentStatus).
-Ответ: { matched: Measure[], skipped: [{ measureId, name, missing[] }] }.
+По умолчанию используется реальный backend:
 
-Measure: { id, name, description, supportType, level, recipient, amount, frequency,
-applicationRequired, channel, actionUrl, documents[], validTo, npa[{name,url}], urgency, reason }.
+`VITE_USE_MOCK=false`
 
-POST /api/mfc-request — { measureId, measureName, name, phone, comment } → { ok, requestId }.
+## Локальный запуск через Vite
+
+```powershell
+npm ci
+npm run dev
+```
+
+Для локального backend в `.env`:
+
+```text
+VITE_API_BASE_URL=http://localhost:8080
+VITE_USE_MOCK=false
+```
 
 ## Docker
 
-    docker build -t zabota-front .
-    docker run -p 8080:80 zabota-front
+```powershell
+docker build -t zabota-front .
+docker run --rm -p 8081:80 -e API_UPSTREAM=http://host.docker.internal:8080 zabota-front
+```
 
-## Ограничения
+Открыть:
 
-- Демо-данные каталога тестовые; суммы/условия сверять с первоисточниками.
-- Сервис не заменяет официальную проверку права на меры (решение принимает ведомство).
-- Напоминания и генерация PDF на сервере — этап после MVP.
+`http://localhost:8081`
+
+## Важно про ФИО
+
+Текущий backend-контракт поиска не принимает имя и фамилию. Поэтому ФИО используется как локальная часть профиля frontend и не выдаётся за серверную авторизацию.
+
+Для полного хранения ФИО в PostgreSQL потребуется отдельное изменение backend-сущности `user` и API профиля.
+
+## Сброс старого профиля
+
+Приложение автоматически переводит старые значения статусов:
+
+`CONTRACT` → `CONTRACT_SVO`
+
+`VETERAN` → `VETERAN_BD`
+
+`DECEASED` → `DECEASED_MILITARY`
+
+При полностью чистом тесте профиль можно удалить из раздела «Профиль».

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useApp } from '../store/AppContext'
 import { LABELS } from '../api/mockData'
@@ -6,158 +6,161 @@ import { Money, Sheet, StatusSwitch } from '../components/ui'
 import { formatDate } from '../utils'
 import { openLink } from '../bridge/max'
 
+const CHANNEL_HELP = {
+  GOSUSLUGI: 'Заявление подаётся онлайн через Госуслуги.',
+  SFR: 'Обратитесь в Социальный фонд России по способу оформления, указанному для этой меры.',
+  MFC: 'Обратитесь лично в МФЦ с документами из списка выше.',
+  SCHOOL: 'Обратитесь в школу или детский сад, который посещает ребёнок. Универсальной ссылки для этого канала нет.',
+  EDUCATIONAL_ORGANIZATION: 'Обратитесь в образовательную организацию, где учится ребёнок. Универсальной ссылки для этого канала нет.',
+  FNS: 'Оформление проводится через налоговый орган или личный кабинет ФНС.',
+  BANK: 'Уточните порядок оформления непосредственно в банке.',
+}
+
 export default function MeasureDetail() {
   const { id } = useParams()
-  const nav = useNavigate()
-  const { profile, results, support, updateSupport, requestMfc, showToast } = useApp()
+  const navigate = useNavigate()
+  const { results, support, updateSupport, showToast } = useApp()
   const [sheetOpen, setSheetOpen] = useState(false)
 
-  // Данные обращения предзаполняются из анкеты (шаг «Ваши данные»)
-  const [form, setForm] = useState(() => ({
-    name: profile?.fullName || '',
-    phone: profile?.phone || '',
-    comment: '',
-  }))
+  const measure = results?.matched?.find((item) => String(item.id) === String(id))
 
-  const m = results?.matched.find((x) => x.id === id)
+  useEffect(() => {
+    if (!measure) return undefined
 
-  if (!m) {
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') setSheetOpen(false)
+    }
+
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [measure])
+
+  if (!measure) {
     return (
       <div className="page">
-        <div className="card" style={{ textAlign: 'center', padding: 28 }}>
-          <p className="p">Мера не найдена. Возможно, подбор устарел.</p>
-          <button className="btn btn--primary" style={{ marginTop: 12 }} onClick={() => nav('/results')}>
-            К результатам
-          </button>
+        <div className="empty card">
+          <h3>Мера не найдена</h3>
+          <p className="p muted">Вернитесь к результатам и выполните подбор ещё раз.</p>
+          <button className="btn btn--primary" type="button" onClick={() => navigate('/results')}>К результатам</button>
         </div>
       </div>
     )
   }
 
-  const st = support[m.id]
-  const status = st?.status || 'NOT_APPLIED'
-  const prefilled = Boolean(profile?.fullName || profile?.phone)
-
-  const toggleReminder = () => {
-    const on = !st?.reminder
-    updateSupport(m.id, { reminder: on })
-    showToast(on ? 'Напомним за 7 дней до срока (демо)' : 'Напоминание отключено')
-  }
+  const state = support[measure.id] || { status: 'NOT_APPLIED', reminder: false }
+  const channelLabel = LABELS.channel[measure.channel] || measure.channel || 'Официальный канал'
+  const channelHelp = CHANNEL_HELP[measure.channel] || 'Уточните способ оформления по условиям конкретной меры.'
 
   const apply = () => {
-    if (m.channel === 'MFC' || !m.actionUrl) { setSheetOpen(true); return }
-    openLink(m.actionUrl)
-    if (status === 'NOT_APPLIED') {
-      updateSupport(m.id, { status: 'SUBMITTED' })
-      showToast('Отметили как «Подано» — статус можно изменить в кабинете')
+    if (measure.actionUrl) {
+      const opened = openLink(measure.actionUrl)
+      if (opened) {
+        showToast('Открыли официальный источник. Перед обращением проверьте актуальные условия.')
+      } else {
+        showToast('Не удалось открыть официальный источник. Попробуйте открыть ссылку ещё раз.')
+      }
+      return
     }
-  }
 
-  const submitMfc = async (e) => {
-    e.preventDefault()
-    try {
-      await requestMfc({ measureId: m.id, measureName: m.name, ...form })
-      setSheetOpen(false)
-      showToast('Обращение сохранено. Специалист свяжется с вами')
-      if (status === 'NOT_APPLIED') updateSupport(m.id, { status: 'SUBMITTED' })
-    } catch (err) {
-      showToast('Не удалось отправить обращение')
-    }
+    setSheetOpen(true)
   }
 
   return (
     <div className="page detail">
       <div className="mcard__top">
-        <span className="chip chip--level">{LABELS.level[m.level]}</span>
-        <span className="chip">{LABELS.supportType[m.supportType]}</span>
-        <span className="chip chip--blue">{LABELS.recipient[m.recipient]}</span>
+        {measure.level && <span className="chip chip--level">{LABELS.level[measure.level] || measure.level}</span>}
+        {measure.supportType && <span className="chip">{LABELS.supportType[measure.supportType] || measure.supportType}</span>}
+        <span className="chip chip--blue">{LABELS.recipient[measure.recipient] || 'Семье'}</span>
       </div>
-      <h1 className="detail__h1">{m.name}</h1>
+
+      <h1 className="detail__h1">{measure.name}</h1>
 
       <div className="card sec">
         <div className="sec__title">Что предоставляется</div>
-        <p className="p">{m.description}</p>
-        {m.amount != null
-          ? <Money amount={m.amount} frequency={m.frequency} />
-          : <p className="p muted">Размер — согласно НПА (см. «Основание»)</p>}
+        <p className="p">{measure.description}</p>
+        <Money amount={measure.amount} frequency={measure.frequency} />
       </div>
-
-      {m.reason && (
-        <div className="card sec">
-          <div className="sec__title">Почему подошла</div>
-          <div className="chips">
-            {m.reason.split(' · ').map((r, i) => <span className="chip" key={i}>{r}</span>)}
-          </div>
-        </div>
-      )}
-
-      <div className="card sec">
-        <div className="sec__title">Статус оформления</div>
-        <StatusSwitch value={status} onChange={(v) => updateSupport(m.id, { status: v })} />
-        <button className="btn btn--ghost btn--sm" onClick={toggleReminder} style={{ alignSelf: 'flex-start' }}>
-          {st?.reminder ? '🔔 Напоминание включено' : '🔕 Напомнить о сроке'}
-        </button>
-      </div>
-
-      {m.documents?.length > 0 && (
-        <div className="card sec">
-          <div className="sec__title">Что подготовить</div>
-          <ul className="docs">{m.documents.map((d) => <li key={d}>▢ {d}</li>)}</ul>
-        </div>
-      )}
 
       <div className="card sec">
         <div className="sec__title">Куда обращаться</div>
-        <p className="p">{LABELS.channel[m.channel]}</p>
-        {m.actionUrl && (
-          <button className="btn btn--primary" onClick={() => openLink(m.actionUrl)}>
-            Открыть {LABELS.channel[m.channel]}
-          </button>
-        )}
-        {m.channel === 'MFC' && <p className="p muted">Потребуется личный визит: возьмите документы из списка выше.</p>}
+        <div className="route-card">
+          <div className="route-card__icon">↗</div>
+          <div>
+            <strong>{channelLabel}</strong>
+            <span>{channelHelp}</span>
+          </div>
+        </div>
       </div>
 
-      {m.npa?.length > 0 && (
+      {measure.documents?.length > 0 && (
+        <div className="card sec">
+          <div className="sec__title">Что подготовить</div>
+          <ul className="docs">
+            {measure.documents.map((document) => (
+              <li key={document}><span className="check-box">□</span>{document}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {measure.npa?.length > 0 && (
         <div className="card sec">
           <div className="sec__title">Основание</div>
           <div className="npa">
-            {m.npa.map((n, i) => (
-              <a key={i} href={n.url} onClick={(e) => { e.preventDefault(); openLink(n.url) }}>
-                {n.name} ↗
-              </a>
+            {measure.npa.map((item, index) => (
+              <button
+                className="link-row"
+                type="button"
+                key={`${item.name}-${index}`}
+                onClick={() => {
+                  if (!openLink(item.url)) showToast('Ссылка на источник недоступна.')
+                }}
+              >
+                {item.name}
+                <span>↗</span>
+              </button>
             ))}
           </div>
         </div>
       )}
 
+      {measure.validTo && (
+        <div className="card sec">
+          <div className="sec__title">Срок</div>
+          <p className="p">Подать до {formatDate(measure.validTo)}</p>
+        </div>
+      )}
+
       <div className="card sec">
-        <div className="sec__title">Срок</div>
-        <p className="p">{m.validTo ? `Подать до ${formatDate(m.validTo)}` : 'Бессрочно (пока действует мера)'}</p>
-      </div>
-
-      <p className="disclaimer">
-        «Забота» не заменяет официальную проверку права на меру. Окончательное решение принимает ведомство.
-      </p>
-
-      <div className="actionbar">
-        <button className="btn btn--primary" onClick={apply}>
-          {m.channel === 'MFC' || !m.actionUrl ? 'Записаться в МФЦ' : 'Подать'}
+        <div className="sec__title">Статус в кабинете</div>
+        <StatusSwitch value={state.status} onChange={(value) => updateSupport(measure.id, { status: value })} />
+        <button
+          className="btn btn--ghost btn--sm"
+          type="button"
+          onClick={() => updateSupport(measure.id, { reminder: !state.reminder })}
+        >
+          {state.reminder ? 'Напоминание включено' : 'Напомнить о сроке'}
         </button>
       </div>
 
-      <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="Обращение к специалисту МФЦ">
-        <form className="sheet__form" onSubmit={submitMfc}>
-          <p className="p muted">По мере «{m.name}» (демо-сценарий: обращение сохраняется и обрабатывается вручную).</p>
-          {prefilled && (
-            <div className="banner banner--info">
-              ФИО и телефон подставлены из вашей анкеты — проверьте и поправьте при необходимости.
-            </div>
-          )}
-          <input className="input" required placeholder="ФИО" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <input className="input" required type="tel" placeholder="Телефон" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          <textarea className="input" rows={3} placeholder="Вопрос (необязательно)" value={form.comment} onChange={(e) => setForm({ ...form, comment: e.target.value })} />
-          <button className="btn btn--primary btn--lg" type="submit">Отправить обращение</button>
-        </form>
+      <p className="disclaimer">Окончательное решение о предоставлении меры принимает уполномоченный орган.</p>
+
+      <div className="actionbar">
+        <button className="btn btn--primary" type="button" onClick={apply}>
+          {measure.actionUrl ? 'Открыть официальный источник' : 'Как оформить'}
+        </button>
+      </div>
+
+      <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="Как оформить">
+        <div className="sheet__form">
+          <p className="p">Документы и заявление подаются по официальному каналу. Подготовьте документы из списка выше и следуйте инструкции для выбранной организации.</p>
+          <ol className="steps-list">
+            <li>Подготовьте документы, перечисленные в карточке меры.</li>
+            <li>{channelHelp}</li>
+            <li>После подачи вернитесь в профиль и установите актуальный статус меры.</li>
+          </ol>
+          <button className="btn btn--primary btn--lg" type="button" onClick={() => setSheetOpen(false)}>Понятно</button>
+        </div>
       </Sheet>
     </div>
   )

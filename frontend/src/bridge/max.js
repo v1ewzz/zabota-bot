@@ -1,57 +1,60 @@
-const bridge =
-  typeof window !== 'undefined'
-    ? window.MaxBridge || window.maxBridge || window.__MAX_BRIDGE__
-    : null
+function getWebApp() {
+  return typeof window !== 'undefined' ? window.WebApp || null : null
+}
 
-export const inMax = Boolean(bridge)
+export function isMax() {
+  return Boolean(getWebApp())
+}
 
 export function ready() {
-  try { bridge?.ready?.() } catch (e) {}
+  try {
+    getWebApp()?.ready?.()
+  } catch {}
 }
 
 export function haptic(type = 'light') {
-  try { bridge?.haptic?.({ type }) } catch (e) {}
+  try {
+    getWebApp()?.HapticFeedback?.impactOccurred?.(type)
+  } catch {}
 }
 
 export function openLink(url) {
-  try {
-    if (bridge?.openLink) return bridge.openLink({ url })
-  } catch (e) {}
-  window.open(url, '_blank', 'noopener')
-}
+  if (!url || !/^https?:\/\//i.test(url)) return false
 
-export function share(text, url) {
   try {
-    if (bridge?.share) return bridge.share({ text, url })
-  } catch (e) {}
-  if (navigator.share) navigator.share({ text, url }).catch(() => {})
-}
-
-export function getUser() {
-  try {
-    const raw =
-      bridge?.initData ||
-      window.__MAX_INIT_DATA__ ||
-      null
-    if (!raw) return null
-
-    let data = raw
-    if (typeof raw === 'string') {
-      if (raw.trim().startsWith('{')) data = JSON.parse(raw)
-      else data = Object.fromEntries(new URLSearchParams(raw))
+    const webApp = getWebApp()
+    if (webApp?.openLink) {
+      webApp.openLink(url)
+      return true
     }
-    const u = data.user
-      ? (typeof data.user === 'string' ? JSON.parse(data.user) : data.user)
-      : data
+  } catch {}
 
-    return {
-      id: u.id ?? u.user_id ?? null,
-      firstName: u.first_name ?? u.firstName ?? '',
-      lastName: u.last_name ?? u.lastName ?? '',
-      username: u.username ?? '',
-      raw: data,
-    }
+  try {
+    const opened = window.open(url, '_blank', 'noopener,noreferrer')
+    return Boolean(opened)
   } catch {
-    return null
+    return false
   }
+}
+
+export function showBackButton(handler) {
+  try {
+    const button = getWebApp()?.BackButton
+    if (!button) return false
+    button.offClick?.(handler)
+    button.onClick?.(handler)
+    button.show?.()
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function hideBackButton(handler) {
+  try {
+    const button = getWebApp()?.BackButton
+    if (!button) return
+    button.offClick?.(handler)
+    button.hide?.()
+  } catch {}
 }
