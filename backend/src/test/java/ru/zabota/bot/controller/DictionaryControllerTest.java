@@ -276,4 +276,44 @@ class DictionaryControllerTest {
 
         return response;
     }
+
+    @Test
+    void getDictionaryTypeByCode_shouldReturn200() throws Exception {
+        UUID typeId = UUID.randomUUID();
+        DictionaryTypeResponse response = new DictionaryTypeResponse();
+        response.setDictionaryTypeId(typeId);
+        response.setCode("MILITARY_STATUS");
+        response.setName("Статус военнослужащего");
+
+        when(dictionaryService.getDictionaryTypeByCode("MILITARY_STATUS"))
+                .thenReturn(response);
+
+        mockMvc.perform(
+                        get("/api/dictionaries/by-code/MILITARY_STATUS")
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dictionaryTypeId")
+                        .value(typeId.toString()))
+                .andExpect(jsonPath("$.code")
+                        .value("MILITARY_STATUS"));
+    }
+
+    @Test
+    void getDictionaryValuesByCode_shouldReturn200() throws Exception {
+        DictionaryValueResponse value = new DictionaryValueResponse();
+        value.setDictionaryValueId(UUID.randomUUID());
+        value.setCode("MOBILIZED");
+        value.setLabel("Мобилизованный");
+
+        when(dictionaryService.getDictionaryValuesByCode("MILITARY_STATUS"))
+                .thenReturn(List.of(value));
+
+        mockMvc.perform(
+                        get("/api/dictionaries/by-code/MILITARY_STATUS/values")
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].code")
+                        .value("MOBILIZED"));
+    }
+
 }

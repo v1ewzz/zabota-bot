@@ -1,7 +1,9 @@
 package ru.zabota.bot.dto.user;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.util.List;
 import java.util.UUID;
@@ -17,6 +19,14 @@ import java.util.UUID;
  * через UUID, а не через JPA Entity.
  */
 public class UserRequest {
+
+        @NotBlank(message = "Имя обязательно")
+        @Size(max = 100, message = "Имя не должно превышать 100 символов")
+        private String firstName;
+
+        @NotBlank(message = "Фамилия обязательна")
+        @Size(max = 100, message = "Фамилия не должна превышать 100 символов")
+        private String lastName;
 
         @NotNull(message = "Регион обязателен")
         private UUID regionId;
@@ -48,6 +58,22 @@ public class UserRequest {
         private List<UserChildRequest> children;
 
         public UserRequest() {
+        }
+
+        public String getFirstName() {
+                return firstName;
+        }
+
+        public void setFirstName(String firstName) {
+                this.firstName = firstName;
+        }
+
+        public String getLastName() {
+                return lastName;
+        }
+
+        public void setLastName(String lastName) {
+                this.lastName = lastName;
         }
 
         public UUID getRegionId() {

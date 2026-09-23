@@ -14,6 +14,9 @@ public class UserResponse {
 
     private UUID userId;
 
+    private String firstName;
+    private String lastName;
+
     private UUID regionId;
     private String regionName;
 
@@ -52,6 +55,22 @@ public class UserResponse {
     private LocalDateTime updatedAt;
 
     public UserResponse() {
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
     }
 
     public UUID getUserId() {

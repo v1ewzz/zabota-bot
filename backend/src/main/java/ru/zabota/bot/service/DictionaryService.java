@@ -53,6 +53,49 @@ public class DictionaryService {
                 .toList();
     }
 
+    public DictionaryTypeResponse getDictionaryTypeByCode(String code) {
+        if (code == null || code.isBlank()) {
+            throw new ResourceNotFoundException(
+                    "Код справочника не указан"
+            );
+        }
+
+        DictionaryType dictionaryType = dictionaryTypeRepository
+                .findByCode(code)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Справочник с кодом "
+                                        + code
+                                        + " не найден"
+                        )
+                );
+
+        return dictionaryTypeMapper.toResponse(dictionaryType);
+    }
+
+    public List<DictionaryValueResponse> getDictionaryValuesByCode(
+            String code
+    ) {
+        DictionaryType dictionaryType = dictionaryTypeRepository
+                .findByCode(code)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Справочник с кодом "
+                                        + code
+                                        + " не найден"
+                        )
+                );
+
+        return dictionaryValueRepository
+                .findAllByDictionaryType_DictionaryTypeId(
+                        dictionaryType.getDictionaryTypeId()
+                )
+                .stream()
+                .filter(DictionaryValue::isActive)
+                .map(dictionaryValueMapper::toResponse)
+                .toList();
+    }
+
     public DictionaryTypeResponse getDictionaryTypeById(UUID id) {
         DictionaryType dictionaryType = dictionaryTypeRepository.findById(id)
                 .orElseThrow(() ->

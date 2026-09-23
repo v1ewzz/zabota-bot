@@ -605,6 +605,9 @@ class UserMapperTest {
         UserRequest request =
                 new UserRequest();
 
+        request.setFirstName("Иван");
+        request.setLastName("Иванов");
+
         request.setRegionId(
                 UUID.randomUUID()
         );

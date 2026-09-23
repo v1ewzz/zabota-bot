@@ -11,7 +11,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -69,9 +69,12 @@ public class UserSupport {
     @Column(name = "selected_for_action", nullable = false)
     private boolean selectedForAction = false;
 
-    @CreationTimestamp
-    @Column(name = "checked_at", nullable = false, updatable = false)
+    @UpdateTimestamp
+    @Column(name = "checked_at", nullable = false)
     private LocalDateTime checkedAt;
+
+    @Column(name = "matched_amount", precision = 12, scale = 2)
+    private java.math.BigDecimal matchedAmount;
 
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt;
@@ -123,6 +126,14 @@ public class UserSupport {
 
     public void setSelectedForAction(boolean selectedForAction) {
         this.selectedForAction = selectedForAction;
+    }
+
+    public java.math.BigDecimal getMatchedAmount() {
+        return matchedAmount;
+    }
+
+    public void setMatchedAmount(java.math.BigDecimal matchedAmount) {
+        this.matchedAmount = matchedAmount;
     }
 
     public LocalDateTime getCheckedAt() {

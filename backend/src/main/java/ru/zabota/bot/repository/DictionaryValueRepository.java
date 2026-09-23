@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import ru.zabota.bot.entity.DictionaryValue;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /*
@@ -16,4 +17,9 @@ import java.util.UUID;
 public interface DictionaryValueRepository extends JpaRepository<DictionaryValue, UUID> {
 
     List<DictionaryValue> findAllByDictionaryType_DictionaryTypeId(UUID dictionaryTypeId);
+
+    Optional<DictionaryValue> findByDictionaryType_CodeAndCode(
+            String dictionaryTypeCode,
+            String code
+    );
 }

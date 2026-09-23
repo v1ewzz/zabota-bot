@@ -98,6 +98,14 @@ V9__create_support_rule.sql
 V10__create_support_npa.sql
 V11__create_support_municipality.sql
 V12__create_user_support.sql
+V13__seed_dictionary_data.sql
+V14__seed_tatarstan_region.sql
+V15__seed_federal_npa.sql
+V16__seed_support_measures.sql
+V17__seed_support_rules.sql
+V18__seed_support_npa.sql
+V19__complete_user_profile.sql
+V20__persist_matched_amount.sql
 ```
 
 Flyway автоматически выполняет новые миграции при запуске Spring Boot.
@@ -110,9 +118,9 @@ Flyway автоматически выполняет новые миграции
 
    docker start postgres
 
-2. Проверить наличие базы `zabota_bot_db`.
+2. Создать локальный файл `.env` рядом с `pom.xml` по примеру `.env.example` и указать реальный пароль PostgreSQL. Файл `.env` добавлен в `.gitignore`.
 
-3. Проверить настройки подключения в `application.properties`.
+3. Проверить наличие базы `zabota_bot_db`.
 
 4. Запустить Spring Boot:
 
@@ -126,6 +134,15 @@ Flyway автоматически выполняет новые миграции
 http://localhost:8080
 ```
 
+### PowerShell
+
+Для разового запуска без `.env` можно передать пароль переменной окружения:
+
+```powershell
+$env:DB_PASSWORD="your_password"
+.\mvnw.cmd spring-boot:run
+```
+
 ## Конфигурация
 
 Основная конфигурация находится в:
@@ -134,11 +151,11 @@ http://localhost:8080
 src/main/resources/application.properties
 ```
 
-Конфигурация должна содержать параметры подключения к PostgreSQL и настройки MAX Bot API.
+Подключение к PostgreSQL настраивается через переменные `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, а порт — через `SERVER_PORT`. Локальный `.env` подключается автоматически через `spring.config.import`.
 
-Секретные значения, такие как токен бота и пароль базы данных, не должны храниться в Git.
+Секретные значения, такие как пароль базы данных и токен бота, не должны храниться в Git.
 
-Для командной разработки рекомендуется использовать переменные окружения или локальный конфигурационный файл, который добавлен в `.gitignore`.
+Для командной разработки используется `.env`, который добавлен в `.gitignore`.
 
 ## Архитектура
 
@@ -230,6 +247,34 @@ GlobalExceptionHandler
 500 Internal Server Error
 ```
 
+## API личного кабинета
+
+Основные endpoint-ы сквозного сценария:
+
+```
+POST  /api/users
+GET   /api/users/{userId}
+GET   /api/users/{userId}/profile
+PUT   /api/users/{userId}
+DELETE /api/users/{userId}
+
+POST  /api/users/{userId}/supports/search
+GET   /api/users/{userId}/supports
+GET   /api/users/{userId}/supports/{userSupportId}
+PATCH /api/users/{userId}/supports/{userSupportId}
+
+POST  /api/supports/search
+
+GET   /api/dictionaries/by-code/{code}
+GET   /api/dictionaries/by-code/{code}/values
+```
+
+`/api/users/{userId}/supports/search` — основной endpoint персонального подбора. Он не принимает повторно анкету: данные берутся из сохранённых `user` и `user_child`, после чего результат синхронизируется с `user_support`.
+
+`/api/users/{userId}/profile` возвращает сохранённые данные пользователя, детей и персональные меры поддержки.
+
+`PATCH /api/users/{userId}/supports/{userSupportId}` позволяет изменить `statusId`, `selectedForAction` и `note`. При переходе в `SUBMITTED`, `APPROVED` или `RECEIVED` соответствующая дата фиксируется автоматически.
+
 ## MAX
 
 MAX является внешним интерфейсом приложения.
@@ -272,32 +317,49 @@ Backend получает параметры пользователя и форм
 
 Подбор выполняется на основании правил, хранящихся в `support_rule`, и связанных мер социальной поддержки.
 
+## Сквозной пользовательский сценарий
+
+Backend поддерживает полный сценарий личного кабинета:
+
+```
+POST /api/users
+    ↓
+user + user_child
+    ↓
+POST /api/users/{userId}/supports/search
+    ↓
+SupportMatchingService
+    ↓
+user_support
+    ↓
+GET /api/users/{userId}/profile
+GET /api/users/{userId}/supports
+    ↓
+PATCH /api/users/{userId}/supports/{userSupportId}
+```
+
+`POST /api/supports/search` сохраняется как stateless API для прямого запуска rules engine. Новый endpoint под пользователем запускает тот же алгоритм уже на данных, сохранённых в PostgreSQL, и фиксирует персональный результат в `user_support`.
+
+При повторном подборе существующие статусы, выбор меры и заметки не сбрасываются. Для новых результатов устанавливается `NOT_APPLIED`. Устаревшие результаты удаляются только если они ещё не были оформлены. Фактически подобранная сумма сохраняется в `user_support.matched_amount`, поэтому результат не зависит от последующего изменения базовой суммы меры.
+
 ## Текущее состояние проекта
 
-На текущем этапе реализованы:
+Реализованы:
 
-* Spring Boot проект;
-* PostgreSQL;
-* подключение к базе данных;
-* Flyway;
-* структура базы данных;
-* 12 SQL-миграций;
-* JPA Entity;
-* Spring Data JPA Repository;
+* Spring Boot и PostgreSQL;
+* Flyway и воспроизводимая начальная БД;
+* единый слой справочников;
+* JPA Entity, Repository, Mapper и Service;
+* CRUD регионов, муниципалитетов, НПА, мер, правил и пользователей;
+* rules engine персонального подбора;
+* сохранение ФИО пользователя и детей;
+* сохранение персональных результатов в `user_support`;
+* API личного кабинета и изменения статуса меры;
 * глобальная обработка ошибок;
-* DTO слой.
-
-Следующие этапы:
-
-* Mapper;
-* Service;
-* REST Controller;
 * Swagger / OpenAPI;
-* интеграция с MAX;
-* сценарии взаимодействия бота;
-* алгоритм подбора мер социальной поддержки;
-* заполнение справочников и нормативной базы;
-* тестирование.
+* unit-тесты существующих сервисов и контроллеров, а также тесты нового сценария личного кабинета.
+
+Следующий слой — подключение frontend к новым `/api/users/.../supports` endpoint-ам, после чего можно завершать интеграцию с MAX.
 
 ## Важные правила разработки
 

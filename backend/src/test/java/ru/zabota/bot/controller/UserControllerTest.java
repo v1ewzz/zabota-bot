@@ -385,6 +385,9 @@ class UserControllerTest {
         UserRequest request =
                 new UserRequest();
 
+        request.setFirstName("Иван");
+        request.setLastName("Иванов");
+
         request.setRegionId(regionId);
         request.setMunicipalityId(
                 municipalityId

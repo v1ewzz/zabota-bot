@@ -7,11 +7,13 @@ import ru.zabota.bot.dto.user.UserChildResponse;
 import ru.zabota.bot.dto.user.UserProfileResponse;
 import ru.zabota.bot.dto.user.UserRequest;
 import ru.zabota.bot.dto.user.UserResponse;
+import ru.zabota.bot.dto.usersupport.UserSupportResponse;
 import ru.zabota.bot.entity.DictionaryValue;
 import ru.zabota.bot.entity.Municipality;
 import ru.zabota.bot.entity.Region;
 import ru.zabota.bot.entity.User;
 import ru.zabota.bot.entity.UserChild;
+import ru.zabota.bot.exception.BadRequestException;
 import ru.zabota.bot.exception.ResourceNotFoundException;
 import ru.zabota.bot.mapper.UserChildMapper;
 import ru.zabota.bot.mapper.UserMapper;
@@ -54,6 +56,7 @@ public class UserService {
     private final DictionaryValueRepository dictionaryValueRepository;
     private final UserMapper userMapper;
     private final UserChildMapper userChildMapper;
+    private final UserSupportService userSupportService;
 
     public UserService(
             UserRepository userRepository,
@@ -62,7 +65,8 @@ public class UserService {
             MunicipalityRepository municipalityRepository,
             DictionaryValueRepository dictionaryValueRepository,
             UserMapper userMapper,
-            UserChildMapper userChildMapper
+            UserChildMapper userChildMapper,
+            UserSupportService userSupportService
     ) {
         this.userRepository = userRepository;
         this.userChildRepository = userChildRepository;
@@ -71,6 +75,7 @@ public class UserService {
         this.dictionaryValueRepository = dictionaryValueRepository;
         this.userMapper = userMapper;
         this.userChildMapper = userChildMapper;
+        this.userSupportService = userSupportService;
     }
 
     @Transactional
@@ -80,29 +85,44 @@ public class UserService {
         Municipality municipality =
                 getMunicipality(request.getMunicipalityId());
 
+        validateMunicipalityRegion(
+                municipality,
+                region
+        );
+
         DictionaryValue familyRelation =
                 getOptionalDictionaryValue(
-                        request.getFamilyRelationId()
+                        request.getFamilyRelationId(),
+                        "FAMILY_RELATION",
+                        "Отношение к военнослужащему"
                 );
 
         DictionaryValue militaryStatus =
                 getOptionalDictionaryValue(
-                        request.getMilitaryStatusId()
+                        request.getMilitaryStatusId(),
+                        "MILITARY_STATUS",
+                        "Статус военнослужащего"
                 );
 
         DictionaryValue disabilityGroup =
                 getOptionalDictionaryValue(
-                        request.getDisabilityGroupId()
+                        request.getDisabilityGroupId(),
+                        "DISABILITY_GROUP",
+                        "Группа инвалидности"
                 );
 
         DictionaryValue employmentStatus =
                 getOptionalDictionaryValue(
-                        request.getEmploymentStatusId()
+                        request.getEmploymentStatusId(),
+                        "EMPLOYMENT_STATUS",
+                        "Статус занятости"
                 );
 
         DictionaryValue incomeCategory =
                 getOptionalDictionaryValue(
-                        request.getIncomeCategoryId()
+                        request.getIncomeCategoryId(),
+                        "INCOME_CATEGORY",
+                        "Категория дохода"
                 );
 
         User user = userMapper.toEntity(
@@ -145,10 +165,18 @@ public class UserService {
                         .map(userChildMapper::toResponse)
                         .toList();
 
-        return userMapper.toProfileResponse(
+        List<UserSupportResponse> supports =
+                userSupportService == null
+                        ? List.of()
+                        : userSupportService.getAll(id);
+
+        UserProfileResponse response = userMapper.toProfileResponse(
                 user,
                 children
         );
+        response.setSupports(supports);
+
+        return response;
     }
 
     @Transactional
@@ -163,29 +191,44 @@ public class UserService {
         Municipality municipality =
                 getMunicipality(request.getMunicipalityId());
 
+        validateMunicipalityRegion(
+                municipality,
+                region
+        );
+
         DictionaryValue familyRelation =
                 getOptionalDictionaryValue(
-                        request.getFamilyRelationId()
+                        request.getFamilyRelationId(),
+                        "FAMILY_RELATION",
+                        "Отношение к военнослужащему"
                 );
 
         DictionaryValue militaryStatus =
                 getOptionalDictionaryValue(
-                        request.getMilitaryStatusId()
+                        request.getMilitaryStatusId(),
+                        "MILITARY_STATUS",
+                        "Статус военнослужащего"
                 );
 
         DictionaryValue disabilityGroup =
                 getOptionalDictionaryValue(
-                        request.getDisabilityGroupId()
+                        request.getDisabilityGroupId(),
+                        "DISABILITY_GROUP",
+                        "Группа инвалидности"
                 );
 
         DictionaryValue employmentStatus =
                 getOptionalDictionaryValue(
-                        request.getEmploymentStatusId()
+                        request.getEmploymentStatusId(),
+                        "EMPLOYMENT_STATUS",
+                        "Статус занятости"
                 );
 
         DictionaryValue incomeCategory =
                 getOptionalDictionaryValue(
-                        request.getIncomeCategoryId()
+                        request.getIncomeCategoryId(),
+                        "INCOME_CATEGORY",
+                        "Категория дохода"
                 );
 
         userMapper.updateEntity(
@@ -252,19 +295,68 @@ public class UserService {
                 );
     }
 
-    private DictionaryValue getOptionalDictionaryValue(UUID id) {
+    private void validateMunicipalityRegion(
+            Municipality municipality,
+            Region region
+    ) {
+        if (municipality.getRegion() != null
+                && municipality.getRegion().getRegionId() != null
+                && !region.getRegionId().equals(
+                municipality.getRegion().getRegionId()
+        )) {
+            throw new BadRequestException(
+                    "Муниципалитет не относится к выбранному региону"
+            );
+        }
+    }
+
+    private DictionaryValue getOptionalDictionaryValue(
+            UUID id,
+            String expectedType,
+            String fieldName
+    ) {
         if (id == null) {
             return null;
         }
 
-        return dictionaryValueRepository.findById(id)
+        DictionaryValue value = dictionaryValueRepository.findById(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
-                                "Значение справочника с id "
+                                fieldName
+                                        + " с id "
                                         + id
-                                        + " не найдено"
+                                        + " не найден"
                         )
                 );
+
+        validateDictionaryValue(
+                value,
+                expectedType,
+                fieldName
+        );
+
+        return value;
+    }
+
+    private void validateDictionaryValue(
+            DictionaryValue value,
+            String expectedType,
+            String fieldName
+    ) {
+        if (!value.isActive()) {
+            throw new BadRequestException(
+                    fieldName + " недоступен для выбора"
+            );
+        }
+
+        if (value.getDictionaryType() != null
+                && !expectedType.equals(
+                value.getDictionaryType().getCode()
+        )) {
+            throw new BadRequestException(
+                    fieldName + " принадлежит другому справочнику"
+            );
+        }
     }
 
     private void saveChildren(
@@ -282,12 +374,15 @@ public class UserService {
             DictionaryValue educationLevel =
                     getRequiredDictionaryValue(
                             request.getEducationLevelId(),
+                            "EDUCATION_LEVEL",
                             "Уровень образования"
                     );
 
             DictionaryValue disabilityGroup =
                     getOptionalDictionaryValue(
-                            request.getDisabilityGroupId()
+                            request.getDisabilityGroupId(),
+                            "DISABILITY_GROUP",
+                            "Группа инвалидности ребёнка"
                     );
 
             UserChild child =
@@ -306,9 +401,16 @@ public class UserService {
 
     private DictionaryValue getRequiredDictionaryValue(
             UUID id,
+            String expectedType,
             String fieldName
     ) {
-        return dictionaryValueRepository.findById(id)
+        if (id == null) {
+            throw new BadRequestException(
+                    fieldName + " обязателен"
+            );
+        }
+
+        DictionaryValue value = dictionaryValueRepository.findById(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 fieldName
@@ -317,5 +419,13 @@ public class UserService {
                                         + " не найден"
                         )
                 );
+
+        validateDictionaryValue(
+                value,
+                expectedType,
+                fieldName
+        );
+
+        return value;
     }
 }

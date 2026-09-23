@@ -1,6 +1,7 @@
 package ru.zabota.bot.dto.user;
 
 import java.util.List;
+import ru.zabota.bot.dto.usersupport.UserSupportResponse;
 
 /*
 
@@ -15,6 +16,8 @@ public class UserProfileResponse {
 
     private List<UserChildResponse> children;
 
+    private List<UserSupportResponse> supports;
+
     public UserProfileResponse() {
     }
 
@@ -24,6 +27,14 @@ public class UserProfileResponse {
 
     public void setUser(UserResponse user) {
         this.user = user;
+    }
+
+    public List<UserSupportResponse> getSupports() {
+        return supports;
+    }
+
+    public void setSupports(List<UserSupportResponse> supports) {
+        this.supports = supports;
     }
 
     public List<UserChildResponse> getChildren() {

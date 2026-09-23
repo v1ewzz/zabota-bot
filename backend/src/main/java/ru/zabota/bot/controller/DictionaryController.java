@@ -54,6 +54,32 @@ public class DictionaryController {
         return dictionaryService.getDictionaryTypes();
     }
 
+    @GetMapping("/by-code/{code}")
+    @Operation(
+            summary = "Получить справочник по коду",
+            description = "Возвращает тип справочника по машинному коду"
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Справочник найден"),
+            @ApiResponse(responseCode = "404", description = "Справочник не найден")
+    })
+    public DictionaryTypeResponse getDictionaryTypeByCode(
+            @PathVariable String code
+    ) {
+        return dictionaryService.getDictionaryTypeByCode(code);
+    }
+
+    @GetMapping("/by-code/{code}/values")
+    @Operation(
+            summary = "Получить активные значения справочника по коду",
+            description = "Возвращает активные значения справочника по машинному коду"
+    )
+    public List<DictionaryValueResponse> getDictionaryValuesByCode(
+            @PathVariable String code
+    ) {
+        return dictionaryService.getDictionaryValuesByCode(code);
+    }
+
     @GetMapping("/{id}")
     @Operation(
             summary = "Получить тип справочника",

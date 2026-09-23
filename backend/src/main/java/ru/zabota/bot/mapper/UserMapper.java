@@ -74,6 +74,9 @@ public class UserMapper {
             return;
         }
 
+        user.setFirstName(trimToNull(request.getFirstName()));
+        user.setLastName(trimToNull(request.getLastName()));
+
         user.setRegion(region);
         user.setMunicipality(municipality);
         user.setFamilyRelation(familyRelation);
@@ -100,6 +103,8 @@ public class UserMapper {
         UserResponse response = new UserResponse();
 
         response.setUserId(user.getUserId());
+        response.setFirstName(user.getFirstName());
+        response.setLastName(user.getLastName());
 
         Region region = user.getRegion();
 
@@ -188,6 +193,15 @@ public class UserMapper {
         response.setChildren(children);
 
         return response;
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private void setDictionaryResponse(

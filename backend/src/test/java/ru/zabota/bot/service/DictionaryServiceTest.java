@@ -158,7 +158,7 @@ class DictionaryServiceTest {
         DictionaryValue second = new DictionaryValue();
         second.setDictionaryValueId(UUID.randomUUID());
         second.setDictionaryType(dictionaryType);
-        second.setCode("CONTRACT");
+        second.setCode("CONTRACT_SVO");
         second.setLabel("Контрактник");
 
         DictionaryTypeResponse typeResponse =
@@ -185,7 +185,7 @@ class DictionaryServiceTest {
                 second.getDictionaryValueId()
         );
         secondResponse.setDictionaryTypeId(dictionaryTypeId);
-        secondResponse.setCode("CONTRACT");
+        secondResponse.setCode("CONTRACT_SVO");
         secondResponse.setLabel("Контрактник");
 
         when(dictionaryTypeRepository.findById(dictionaryTypeId))
