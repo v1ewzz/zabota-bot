@@ -76,12 +76,19 @@ export function AppProvider({ children }) {
       const next = { ...previous }
 
       for (const item of matched) {
-        if (!next[item.id]) {
-          next[item.id] = {
-            status: 'NOT_APPLIED',
-            reminder: false,
-            updatedAt: Date.now(),
-          }
+        const current = next[item.id] || {
+          status: 'NOT_APPLIED',
+          reminder: false,
+          updatedAt: Date.now(),
+        }
+
+        next[item.id] = {
+          ...current,
+          ...(item.status ? { status: item.status } : {}),
+          ...(item.selectedForAction != null
+            ? { selectedForAction: item.selectedForAction }
+            : {}),
+          updatedAt: current.updatedAt || Date.now(),
         }
       }
 
@@ -91,9 +98,14 @@ export function AppProvider({ children }) {
 
   const runMatch = useCallback(async (draft) => {
     const response = await api.runMatch(draft)
+
+    if (response.profile) {
+      setProfile(response.profile)
+    }
+
     const normalized = {
       ...response,
-      version: JSON.stringify(draft),
+      version: JSON.stringify({ ...draft, backendUserId: response.userId }),
       at: Date.now(),
     }
 
@@ -108,7 +120,7 @@ export function AppProvider({ children }) {
 
   const setConsent = useCallback((value) => setConsentState(Boolean(value)), [])
 
-  const updateSupport = useCallback((id, patch) => {
+  const updateSupport = useCallback(async (id, patch) => {
     setSupport((previous) => ({
       ...previous,
       [id]: {
@@ -117,8 +129,46 @@ export function AppProvider({ children }) {
         updatedAt: Date.now(),
       },
     }))
+
     haptic('light')
-  }, [])
+
+    if (!profile?.backendUserId) {
+      return
+    }
+
+    const currentMeasure = results?.matched?.find(
+      (item) => String(item.id) === String(id)
+    )
+
+    if (!currentMeasure?.userSupportId) {
+      return
+    }
+
+    const serverPatch = {}
+
+    if (patch.status) serverPatch.status = patch.status
+    if (typeof patch.selectedForAction === 'boolean') {
+      serverPatch.selectedForAction = patch.selectedForAction
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'note')) {
+      serverPatch.note = patch.note
+    }
+
+    if (Object.keys(serverPatch).length === 0) {
+      return
+    }
+
+    try {
+      await api.updateUserSupport(
+        profile.backendUserId,
+        currentMeasure.userSupportId,
+        serverPatch
+      )
+    } catch (error) {
+      console.error(error)
+      showToast(error.message || 'Не удалось сохранить изменение меры.')
+    }
+  }, [profile?.backendUserId, results, showToast])
 
   const requestMfc = useCallback((payload) => api.requestMfc(payload), [])
 

@@ -2,6 +2,10 @@ function getWebApp() {
   return typeof window !== 'undefined' ? window.WebApp || null : null
 }
 
+export function getWebAppInstance() {
+  return getWebApp()
+}
+
 export function isMax() {
   return Boolean(getWebApp())
 }
@@ -10,6 +14,54 @@ export function ready() {
   try {
     getWebApp()?.ready?.()
   } catch {}
+}
+
+export function getInitData() {
+  try {
+    return getWebApp()?.initData || ''
+  } catch {
+    return ''
+  }
+}
+
+export function getInitDataUnsafe() {
+  try {
+    return getWebApp()?.initDataUnsafe || null
+  } catch {
+    return null
+  }
+}
+
+export function getMaxPlatform() {
+  try {
+    return getWebApp()?.platform || null
+  } catch {
+    return null
+  }
+}
+
+export function getMaxVersion() {
+  try {
+    return getWebApp()?.version || null
+  } catch {
+    return null
+  }
+}
+
+export function getMaxDeviceName() {
+  try {
+    return getWebApp()?.deviceName || null
+  } catch {
+    return null
+  }
+}
+
+export function getLaunchContext() {
+  try {
+    return getWebApp()?.getLaunchContext?.() || null
+  } catch {
+    return null
+  }
 }
 
 export function haptic(type = 'light') {
@@ -54,7 +106,7 @@ export function hideBackButton(handler) {
   try {
     const button = getWebApp()?.BackButton
     if (!button) return
-    button.offClick?.(handler)
+    if (handler) button.offClick?.(handler)
     button.hide?.()
   } catch {}
 }

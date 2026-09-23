@@ -5,8 +5,14 @@ const USE_MOCK = String(import.meta.env.VITE_USE_MOCK ?? 'false').toLowerCase() 
 
 export default {
   runMatch: USE_MOCK ? mock.runMatch : backend.runMatch,
+  updateUserSupport: USE_MOCK
+    ? async () => null
+    : backend.updateUserSupport,
+  getProfile: USE_MOCK
+    ? async () => null
+    : backend.getProfile,
   requestMfc: async (payload) => {
     if (USE_MOCK) return mock.requestMfc(payload)
-    throw new Error('MFC request endpoint is not part of the current backend contract')
+    return backend.requestMfc(payload)
   },
 }

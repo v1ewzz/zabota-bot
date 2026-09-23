@@ -1,6 +1,14 @@
 const BASE = String(import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 const REQUEST_TIMEOUT_MS = 20_000
 
+function buildHeaders(options) {
+  return {
+    Accept: 'application/json',
+    ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+    ...(options.headers || {}),
+  }
+}
+
 export async function apiFetch(path, options = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
@@ -9,11 +17,7 @@ export async function apiFetch(path, options = {}) {
     const response = await fetch(`${BASE}/api${path}`, {
       ...options,
       signal: options.signal || controller.signal,
-      headers: {
-        Accept: 'application/json',
-        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-        ...(options.headers || {}),
-      },
+      headers: buildHeaders(options),
     })
 
     const text = await response.text().catch(() => '')
@@ -38,11 +42,11 @@ export async function apiFetch(path, options = {}) {
     }
   } catch (error) {
     if (error?.name === 'AbortError') {
-      throw new Error('Сервер не ответил вовремя. Проверьте, что backend запущен на порту 8080.')
+      throw new Error('Сервер не ответил вовремя. Проверьте доступность backend.')
     }
 
     if (error instanceof TypeError) {
-      throw new Error('Не удалось подключиться к backend. Проверьте, что backend запущен и доступен.')
+      throw new Error('Не удалось подключиться к backend. Проверьте адрес API и доступность сервера.')
     }
 
     throw error
