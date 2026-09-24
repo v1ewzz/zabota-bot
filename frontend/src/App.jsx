@@ -1,16 +1,35 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppProvider, useApp } from './store/AppContext'
 import Layout from './components/Layout'
-import Onboarding from './pages/Onboarding'
+import Home from './pages/Home'
 import Survey from './pages/Survey'
 import Results from './pages/Results'
 import MeasureDetail from './pages/MeasureDetail'
 import Account from './pages/Account'
 import Print from './pages/Print'
 
-function Guard({ children }) {
+function hasIdentity(profile) {
+  return Boolean(profile?.firstName?.trim() && profile?.lastName?.trim())
+}
+
+function hasCompletedSurvey(profile) {
+  return hasIdentity(profile)
+    && Boolean(profile.familyRelation)
+    && Boolean(profile.militaryStatus)
+    && Boolean(profile.region)
+    && Boolean(profile.municipality)
+    && Boolean(profile.incomeRange)
+}
+
+function IdentityGuard({ children }) {
   const { profile } = useApp()
-  if (!profile) return <Navigate to="/" replace />
+  if (!hasIdentity(profile)) return <Navigate to="/" replace />
+  return children
+}
+
+function SurveyGuard({ children }) {
+  const { profile } = useApp()
+  if (!hasCompletedSurvey(profile)) return <Navigate to="/survey" replace />
   return children
 }
 
@@ -19,12 +38,12 @@ export default function App() {
     <AppProvider>
       <Layout>
         <Routes>
-          <Route path="/" element={<Onboarding />} />
-          <Route path="/survey" element={<Survey />} />
-          <Route path="/results" element={<Guard><Results /></Guard>} />
-          <Route path="/measure/:id" element={<Guard><MeasureDetail /></Guard>} />
-          <Route path="/account" element={<Guard><Account /></Guard>} />
-          <Route path="/print" element={<Guard><Print /></Guard>} />
+          <Route path="/" element={<Home />} />
+          <Route path="/survey" element={<IdentityGuard><Survey /></IdentityGuard>} />
+          <Route path="/results" element={<SurveyGuard><Results /></SurveyGuard>} />
+          <Route path="/measure/:id" element={<SurveyGuard><MeasureDetail /></SurveyGuard>} />
+          <Route path="/account" element={<IdentityGuard><Account /></IdentityGuard>} />
+          <Route path="/print" element={<SurveyGuard><Print /></SurveyGuard>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

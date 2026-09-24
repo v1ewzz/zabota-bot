@@ -1,58 +1,90 @@
 import { useEffect } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useApp } from '../store/AppContext'
+import { hideBackButton, isMax, showBackButton } from '../bridge/max'
 
 const TITLES = {
   '/survey': 'Анкета',
   '/results': 'Результаты',
-  '/account': 'Личный кабинет',
-  '/print': 'PDF-сводка',
+  '/account': 'Профиль',
+  '/print': 'Сводка',
 }
 
-const ICONS = {
-  star: <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2l2.5 5.2 5.7.8-4.1 4 1 5.6L12 16.1l-5.1 2.7 1-5.6-4.1-4 5.7-.8z" /></svg>,
-  list: <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 5.5h16v2.6H4zM4 10.7h16v2.6H4zM4 15.9h16v2.6H4z" /></svg>,
-  pen: <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.2V21h3.8L17.9 9.9l-3.8-3.8L3 17.2zM20.7 7.1a1 1 0 000-1.4L18.3 3.3a1 1 0 00-1.4 0L15.1 5.1l3.8 3.8 1.8-1.8z" /></svg>,
+function BackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M19 12H5M11 18l-6-6 6-6" />
+    </svg>
+  )
 }
 
-const TABS = [
-  { to: '/results', label: 'Результаты', icon: ICONS.star },
-  { to: '/account', label: 'Кабинет', icon: ICONS.list },
-  { to: '/survey', label: 'Анкета', icon: ICONS.pen },
-]
+function ResultsIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM7.5 15l2.8-3 2.2 2 4-5" /></svg>
+}
+
+function AccountIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2" /><path d="M5.5 19c.8-3 3-4.7 6.5-4.7s5.7 1.7 6.5 4.7" /></svg>
+}
+
+function SurveyIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h4" /></svg>
+}
 
 export default function Layout({ children }) {
-  const { toast } = useApp()
+  const { toast, profile } = useApp()
   const { pathname } = useLocation()
-  const nav = useNavigate()
+  const navigate = useNavigate()
 
-  const showNav = pathname === '/results' || pathname === '/account'
   const isHome = pathname === '/'
   const title = TITLES[pathname] || 'Мера поддержки'
+  const backTarget = pathname.startsWith('/measure/') ? '/results' : pathname === '/print' ? '/account' : '/'
+  const showBottomNav = Boolean(profile?.firstName && profile?.lastName) && ['/results', '/account'].includes(pathname)
 
-  useEffect(() => { window.scrollTo(0, 0) }, [pathname])
+  const handleBack = () => navigate(backTarget)
+
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
+
+  useEffect(() => {
+    if (!isMax() || isHome) {
+      hideBackButton()
+      return undefined
+    }
+
+    showBackButton(handleBack)
+    return () => hideBackButton(handleBack)
+  }, [pathname, backTarget, isHome])
 
   return (
-    <div className="app">
+    <div className={`app${showBottomNav ? ' app--with-nav' : ''}`}>
       {!isHome && (
         <header className="header">
-          {showNav ? <div style={{ width: 40 }} /> : <button className="icon-btn" onClick={() => nav(-1)} aria-label="Назад">←</button>}
+          <button className="back-btn" type="button" onClick={handleBack} aria-label="Назад">
+            <BackIcon />
+          </button>
           <div className="header__title">{title}</div>
-          <div style={{ width: 40 }} />
+          <div className="header__spacer" aria-hidden="true" />
         </header>
       )}
-      <main style={{ flex: 1 }}>{children}</main>
 
-      {toast && <div className="toast" key={toast.at}>{toast.text}</div>}
+      <main className="main">{children}</main>
+      {toast && <div className="toast" role="status" key={toast.at}>{toast.text}</div>}
 
-      {showNav && (
-        <nav className="nav">
-          {TABS.map((t) => (
-            <NavLink key={t.to} to={t.to} className={({ isActive }) => 'nav__item' + (isActive ? ' nav__item--on' : '')}>
-              {t.icon}
-              <span>{t.label}</span>
-            </NavLink>
-          ))}
+      {showBottomNav && (
+        <nav className="nav" aria-label="Основная навигация">
+          <NavLink to="/results" className={({ isActive }) => `nav__item${isActive ? ' nav__item--on' : ''}`}>
+            <ResultsIcon />
+            <span>Результаты</span>
+          </NavLink>
+          <NavLink to="/account" className={({ isActive }) => `nav__item${isActive ? ' nav__item--on' : ''}`}>
+            <AccountIcon />
+            <span>Профиль</span>
+          </NavLink>
+          <NavLink to="/survey" className={({ isActive }) => `nav__item${isActive ? ' nav__item--on' : ''}`}>
+            <SurveyIcon />
+            <span>Анкета</span>
+          </NavLink>
         </nav>
       )}
     </div>

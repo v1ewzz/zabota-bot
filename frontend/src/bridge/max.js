@@ -1,57 +1,112 @@
-const bridge =
-  typeof window !== 'undefined'
-    ? window.MaxBridge || window.maxBridge || window.__MAX_BRIDGE__
-    : null
+function getWebApp() {
+  return typeof window !== 'undefined' ? window.WebApp || null : null
+}
 
-export const inMax = Boolean(bridge)
+export function getWebAppInstance() {
+  return getWebApp()
+}
+
+export function isMax() {
+  return Boolean(getWebApp())
+}
 
 export function ready() {
-  try { bridge?.ready?.() } catch (e) {}
-}
-
-export function haptic(type = 'light') {
-  try { bridge?.haptic?.({ type }) } catch (e) {}
-}
-
-export function openLink(url) {
   try {
-    if (bridge?.openLink) return bridge.openLink({ url })
-  } catch (e) {}
-  window.open(url, '_blank', 'noopener')
+    getWebApp()?.ready?.()
+  } catch {}
 }
 
-export function share(text, url) {
+export function getInitData() {
   try {
-    if (bridge?.share) return bridge.share({ text, url })
-  } catch (e) {}
-  if (navigator.share) navigator.share({ text, url }).catch(() => {})
+    return getWebApp()?.initData || ''
+  } catch {
+    return ''
+  }
 }
 
-export function getUser() {
+export function getInitDataUnsafe() {
   try {
-    const raw =
-      bridge?.initData ||
-      window.__MAX_INIT_DATA__ ||
-      null
-    if (!raw) return null
-
-    let data = raw
-    if (typeof raw === 'string') {
-      if (raw.trim().startsWith('{')) data = JSON.parse(raw)
-      else data = Object.fromEntries(new URLSearchParams(raw))
-    }
-    const u = data.user
-      ? (typeof data.user === 'string' ? JSON.parse(data.user) : data.user)
-      : data
-
-    return {
-      id: u.id ?? u.user_id ?? null,
-      firstName: u.first_name ?? u.firstName ?? '',
-      lastName: u.last_name ?? u.lastName ?? '',
-      username: u.username ?? '',
-      raw: data,
-    }
+    return getWebApp()?.initDataUnsafe || null
   } catch {
     return null
   }
+}
+
+export function getMaxPlatform() {
+  try {
+    return getWebApp()?.platform || null
+  } catch {
+    return null
+  }
+}
+
+export function getMaxVersion() {
+  try {
+    return getWebApp()?.version || null
+  } catch {
+    return null
+  }
+}
+
+export function getMaxDeviceName() {
+  try {
+    return getWebApp()?.deviceName || null
+  } catch {
+    return null
+  }
+}
+
+export function getLaunchContext() {
+  try {
+    return getWebApp()?.getLaunchContext?.() || null
+  } catch {
+    return null
+  }
+}
+
+export function haptic(type = 'light') {
+  try {
+    getWebApp()?.HapticFeedback?.impactOccurred?.(type)
+  } catch {}
+}
+
+export function openLink(url) {
+  if (!url || !/^https?:\/\//i.test(url)) return false
+
+  try {
+    const webApp = getWebApp()
+    if (webApp?.openLink) {
+      webApp.openLink(url)
+      return true
+    }
+  } catch {}
+
+  try {
+    const opened = window.open(url, '_blank', 'noopener,noreferrer')
+    return Boolean(opened)
+  } catch {
+    return false
+  }
+}
+
+export function showBackButton(handler) {
+  try {
+    const button = getWebApp()?.BackButton
+    if (!button) return false
+    button.offClick?.(handler)
+    button.onClick?.(handler)
+    button.show?.()
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function hideBackButton(handler) {
+  try {
+    const button = getWebApp()?.BackButton
+    if (!button) return
+    if (handler) button.offClick?.(handler)
+    button.hide?.()
+  } catch {}
 }
