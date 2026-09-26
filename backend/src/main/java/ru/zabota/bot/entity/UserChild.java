@@ -19,13 +19,8 @@ import java.util.UUID;
 /*
  * Сущность ребёнка пользователя.
  *
- * Соответствует таблице user_child.
- * Каждый ребёнок относится к одному пользователю.
- * Удаление пользователя приводит к удалению его детей
- * в соответствии с ON DELETE CASCADE на уровне базы данных.
- *
- * Уровень образования и группа инвалидности представлены
- * ссылками на DictionaryValue.
+ * Хранит дату рождения, образование, класс, инвалидность,
+ * форму обучения и тип образовательной организации.
  */
 @Entity
 @Table(name = "user_child")
@@ -37,39 +32,32 @@ public class UserChild {
     private UUID childId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(
-            name = "user_id",
-            nullable = false,
-            foreignKey = @ForeignKey(name = "fk_user_child_user")
-    )
+    @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_user_child_user"))
     private User user;
 
     @Column(name = "birth_date", nullable = false)
     private LocalDate birthDate;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(
-            name = "education_level_id",
-            nullable = false,
-            foreignKey = @ForeignKey(name = "fk_user_child_education_level")
-    )
+    @JoinColumn(name = "education_level_id", nullable = false, foreignKey = @ForeignKey(name = "fk_user_child_education_level"))
     private DictionaryValue educationLevel;
 
     @Column(name = "grade")
     private Short grade;
 
     @Column(name = "disability", nullable = false)
-    private boolean disability = false;
+    private boolean disability;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "disability_group_id",
-            foreignKey = @ForeignKey(name = "fk_user_child_disability_group")
-    )
+    @JoinColumn(name = "disability_group_id", foreignKey = @ForeignKey(name = "fk_user_child_disability_group"))
     private DictionaryValue disabilityGroup;
 
     @Column(name = "full_time", nullable = false)
-    private boolean fullTime = false;
+    private boolean fullTime;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "institution_type_id", foreignKey = @ForeignKey(name = "fk_user_child_institution_type"))
+    private DictionaryValue institutionType;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -140,6 +128,14 @@ public class UserChild {
 
     public void setFullTime(boolean fullTime) {
         this.fullTime = fullTime;
+    }
+
+    public DictionaryValue getInstitutionType() {
+        return institutionType;
+    }
+
+    public void setInstitutionType(DictionaryValue institutionType) {
+        this.institutionType = institutionType;
     }
 
     public LocalDateTime getCreatedAt() {

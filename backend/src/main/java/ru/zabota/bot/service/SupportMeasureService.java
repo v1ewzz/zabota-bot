@@ -6,10 +6,13 @@ import ru.zabota.bot.dto.support.SupportMeasureRequest;
 import ru.zabota.bot.dto.support.SupportMeasureResponse;
 import ru.zabota.bot.entity.DictionaryValue;
 import ru.zabota.bot.entity.SupportMeasure;
+import ru.zabota.bot.entity.SupportNpa;
+import ru.zabota.bot.entity.Npa;
 import ru.zabota.bot.exception.ResourceNotFoundException;
 import ru.zabota.bot.mapper.SupportMeasureMapper;
 import ru.zabota.bot.repository.DictionaryValueRepository;
 import ru.zabota.bot.repository.SupportMeasureRepository;
+import ru.zabota.bot.repository.SupportNpaRepository;
 
 import java.util.List;
 import java.util.UUID;
@@ -41,15 +44,18 @@ public class SupportMeasureService {
     private final SupportMeasureRepository supportMeasureRepository;
     private final DictionaryValueRepository dictionaryValueRepository;
     private final SupportMeasureMapper supportMeasureMapper;
+    private final SupportNpaRepository supportNpaRepository;
 
     public SupportMeasureService(
             SupportMeasureRepository supportMeasureRepository,
             DictionaryValueRepository dictionaryValueRepository,
-            SupportMeasureMapper supportMeasureMapper
+            SupportMeasureMapper supportMeasureMapper,
+            SupportNpaRepository supportNpaRepository
     ) {
         this.supportMeasureRepository = supportMeasureRepository;
         this.dictionaryValueRepository = dictionaryValueRepository;
         this.supportMeasureMapper = supportMeasureMapper;
+        this.supportNpaRepository = supportNpaRepository;
     }
 
     @Transactional
@@ -94,7 +100,7 @@ public class SupportMeasureService {
         supportMeasure =
                 supportMeasureRepository.save(supportMeasure);
 
-        return supportMeasureMapper.toResponse(supportMeasure);
+        return toResponseWithNpa(supportMeasure);
     }
 
     @Transactional(readOnly = true)
@@ -109,14 +115,14 @@ public class SupportMeasureService {
                                 )
                         );
 
-        return supportMeasureMapper.toResponse(supportMeasure);
+        return toResponseWithNpa(supportMeasure);
     }
 
     @Transactional(readOnly = true)
     public List<SupportMeasureResponse> getAll() {
         return supportMeasureRepository.findAll()
                 .stream()
-                .map(supportMeasureMapper::toResponse)
+                .map(this::toResponseWithNpa)
                 .toList();
     }
 
@@ -173,7 +179,7 @@ public class SupportMeasureService {
         supportMeasure =
                 supportMeasureRepository.save(supportMeasure);
 
-        return supportMeasureMapper.toResponse(supportMeasure);
+        return toResponseWithNpa(supportMeasure);
     }
 
     @Transactional
@@ -189,6 +195,21 @@ public class SupportMeasureService {
                         );
 
         supportMeasureRepository.delete(supportMeasure);
+    }
+
+    private SupportMeasureResponse toResponseWithNpa(
+            SupportMeasure supportMeasure
+    ) {
+        List<Npa> npas = supportNpaRepository
+                .findAllBySupport_SupportId(supportMeasure.getSupportId())
+                .stream()
+                .map(SupportNpa::getNpa)
+                .toList();
+
+        return supportMeasureMapper.toResponse(
+                supportMeasure,
+                npas
+        );
     }
 
     private DictionaryValue getDictionaryValue(UUID id) {

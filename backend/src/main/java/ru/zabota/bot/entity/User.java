@@ -13,20 +13,17 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 /*
- * Сущность пользователя.
+ * Сущность пользователя и сохранённой анкеты.
  *
- * Соответствует таблице "user".
- * Хранит территориальные данные пользователя,
- * семейный и военный статус, признаки беременности,
- * травмы, инвалидности, жилищной и газификационной
- * потребности, а также сведения о занятости и доходе.
- *
- * Все справочные значения представлены ссылками
- * на DictionaryValue.
+ * Хранит базовый профиль, территорию, семейную роль,
+ * военный статус, медицинские, жилищные, трудовые,
+ * финансовые и дополнительные признаки, используемые rules engine.
+ * Все справочные значения представлены ссылками на DictionaryValue.
  */
 @Entity
 @Table(name = "\"user\"")
@@ -44,70 +41,79 @@ public class User {
     private String lastName;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(
-            name = "region_id",
-            nullable = false,
-            foreignKey = @ForeignKey(name = "fk_user_region")
-    )
+    @JoinColumn(name = "region_id", nullable = false, foreignKey = @ForeignKey(name = "fk_user_region"))
     private Region region;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(
-            name = "municipality_id",
-            nullable = false,
-            foreignKey = @ForeignKey(name = "fk_user_municipality")
-    )
+    @JoinColumn(name = "municipality_id", nullable = false, foreignKey = @ForeignKey(name = "fk_user_municipality"))
     private Municipality municipality;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "family_relation_id",
-            foreignKey = @ForeignKey(name = "fk_user_family_relation")
-    )
+    @JoinColumn(name = "family_relation_id", foreignKey = @ForeignKey(name = "fk_user_family_relation"))
     private DictionaryValue familyRelation;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "military_status_id",
-            foreignKey = @ForeignKey(name = "fk_user_military_status")
-    )
+    @JoinColumn(name = "military_status_id", foreignKey = @ForeignKey(name = "fk_user_military_status"))
     private DictionaryValue militaryStatus;
+
+    @Column(name = "birth_date")
+    private LocalDate birthDate;
 
     @Column(name = "pregnancy")
     private Boolean pregnancy;
 
-    @Column(name = "injury", nullable = false)
-    private boolean injury = false;
-
-    @Column(name = "disability", nullable = false)
-    private boolean disability = false;
+    @Column(name = "pregnancy_days")
+    private Short pregnancyDays;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "disability_group_id",
-            foreignKey = @ForeignKey(name = "fk_user_disability_group")
-    )
+    @JoinColumn(name = "sex_id", foreignKey = @ForeignKey(name = "fk_user_sex"))
+    private DictionaryValue sex;
+
+    @Column(name = "injury", nullable = false)
+    private boolean injury;
+
+    @Column(name = "disability", nullable = false)
+    private boolean disability;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "disability_group_id", foreignKey = @ForeignKey(name = "fk_user_disability_group"))
     private DictionaryValue disabilityGroup;
 
     @Column(name = "housing_problem", nullable = false)
-    private boolean housingProblem = false;
+    private boolean housingProblem;
 
     @Column(name = "gasification_needed", nullable = false)
-    private boolean gasificationNeeded = false;
+    private boolean gasificationNeeded;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "employment_status_id",
-            foreignKey = @ForeignKey(name = "fk_user_employment_status")
-    )
+    @JoinColumn(name = "employment_status_id", foreignKey = @ForeignKey(name = "fk_user_employment_status"))
     private DictionaryValue employmentStatus;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "income_category_id",
-            foreignKey = @ForeignKey(name = "fk_user_income_category")
-    )
+    @JoinColumn(name = "income_category_id", foreignKey = @ForeignKey(name = "fk_user_income_category"))
     private DictionaryValue incomeCategory;
+
+    @Column(name = "loan_exists", nullable = false)
+    private boolean loanExists;
+
+    @Column(name = "business_plan", nullable = false)
+    private boolean businessPlan;
+
+    @Column(name = "job_seeker", nullable = false)
+    private boolean jobSeeker;
+
+    @Column(name = "social_service_need", nullable = false)
+    private boolean socialServiceNeed;
+
+    @Column(name = "serviceman_leave_start")
+    private LocalDate servicemanLeaveStart;
+
+    @Column(name = "serviceman_leave_end")
+    private LocalDate servicemanLeaveEnd;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "legal_issue_category_id", foreignKey = @ForeignKey(name = "fk_user_legal_issue_category"))
+    private DictionaryValue legalIssueCategory;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -118,6 +124,14 @@ public class User {
     private LocalDateTime updatedAt;
 
     public User() {
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public void setUserId(UUID userId) {
+        this.userId = userId;
     }
 
     public String getFirstName() {
@@ -134,14 +148,6 @@ public class User {
 
     public void setLastName(String lastName) {
         this.lastName = lastName;
-    }
-
-    public UUID getUserId() {
-        return userId;
-    }
-
-    public void setUserId(UUID userId) {
-        this.userId = userId;
     }
 
     public Region getRegion() {
@@ -176,12 +182,36 @@ public class User {
         this.militaryStatus = militaryStatus;
     }
 
+    public LocalDate getBirthDate() {
+        return birthDate;
+    }
+
+    public void setBirthDate(LocalDate birthDate) {
+        this.birthDate = birthDate;
+    }
+
     public Boolean getPregnancy() {
         return pregnancy;
     }
 
     public void setPregnancy(Boolean pregnancy) {
         this.pregnancy = pregnancy;
+    }
+
+    public Short getPregnancyDays() {
+        return pregnancyDays;
+    }
+
+    public void setPregnancyDays(Short pregnancyDays) {
+        this.pregnancyDays = pregnancyDays;
+    }
+
+    public DictionaryValue getSex() {
+        return sex;
+    }
+
+    public void setSex(DictionaryValue sex) {
+        this.sex = sex;
     }
 
     public boolean isInjury() {
@@ -238,6 +268,62 @@ public class User {
 
     public void setIncomeCategory(DictionaryValue incomeCategory) {
         this.incomeCategory = incomeCategory;
+    }
+
+    public boolean isLoanExists() {
+        return loanExists;
+    }
+
+    public void setLoanExists(boolean loanExists) {
+        this.loanExists = loanExists;
+    }
+
+    public boolean isBusinessPlan() {
+        return businessPlan;
+    }
+
+    public void setBusinessPlan(boolean businessPlan) {
+        this.businessPlan = businessPlan;
+    }
+
+    public boolean isJobSeeker() {
+        return jobSeeker;
+    }
+
+    public void setJobSeeker(boolean jobSeeker) {
+        this.jobSeeker = jobSeeker;
+    }
+
+    public boolean isSocialServiceNeed() {
+        return socialServiceNeed;
+    }
+
+    public void setSocialServiceNeed(boolean socialServiceNeed) {
+        this.socialServiceNeed = socialServiceNeed;
+    }
+
+    public LocalDate getServicemanLeaveStart() {
+        return servicemanLeaveStart;
+    }
+
+    public void setServicemanLeaveStart(LocalDate servicemanLeaveStart) {
+        this.servicemanLeaveStart = servicemanLeaveStart;
+    }
+
+    public LocalDate getServicemanLeaveEnd() {
+        return servicemanLeaveEnd;
+    }
+
+    public void setServicemanLeaveEnd(LocalDate servicemanLeaveEnd) {
+        this.servicemanLeaveEnd = servicemanLeaveEnd;
+    }
+
+    public DictionaryValue getLegalIssueCategory() {
+        return legalIssueCategory;
+    }
+
+    public void setLegalIssueCategory(DictionaryValue legalIssueCategory) {
+        this.legalIssueCategory = legalIssueCategory;
     }
 
     public LocalDateTime getCreatedAt() {

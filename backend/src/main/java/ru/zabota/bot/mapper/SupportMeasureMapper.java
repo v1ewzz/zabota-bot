@@ -1,22 +1,20 @@
 package ru.zabota.bot.mapper;
 
 import org.springframework.stereotype.Component;
+import ru.zabota.bot.dto.support.NpaShortResponse;
 import ru.zabota.bot.dto.support.SupportMeasureRequest;
 import ru.zabota.bot.dto.support.SupportMeasureResponse;
 import ru.zabota.bot.entity.DictionaryValue;
+import ru.zabota.bot.entity.Npa;
 import ru.zabota.bot.entity.SupportMeasure;
 
+import java.util.List;
+
 /*
- * Маппер сущности SupportMeasure.
+ * Маппер SupportMeasure.
  *
- * Отвечает за ручное преобразование:
- *
- * SupportMeasureRequest → SupportMeasure
- * SupportMeasure → SupportMeasureResponse
- *
- * Для связанных справочных сущностей Request содержит UUID,
- * поэтому сам Mapper не загружает DictionaryValue из базы.
- * Объекты справочников должны быть переданы сервисным слоем.
+ * Преобразует меру и связанные с ней справочные значения
+ * в DTO. Список НПА передаётся сервисным слоем.
  */
 @Component
 public class SupportMeasureMapper {
@@ -35,7 +33,6 @@ public class SupportMeasureMapper {
         }
 
         SupportMeasure supportMeasure = new SupportMeasure();
-
         updateEntity(
                 supportMeasure,
                 request,
@@ -46,7 +43,6 @@ public class SupportMeasureMapper {
                 frequency,
                 verificationStatus
         );
-
         return supportMeasure;
     }
 
@@ -81,23 +77,28 @@ public class SupportMeasureMapper {
     }
 
     public SupportMeasureResponse toResponse(SupportMeasure supportMeasure) {
+        return toResponse(supportMeasure, List.of());
+    }
+
+    public SupportMeasureResponse toResponse(
+            SupportMeasure supportMeasure,
+            List<Npa> npas
+    ) {
         if (supportMeasure == null) {
             return null;
         }
 
         SupportMeasureResponse response = new SupportMeasureResponse();
-
         response.setSupportId(supportMeasure.getSupportId());
         response.setName(supportMeasure.getName());
         response.setDescription(supportMeasure.getDescription());
-        response.setApplicationRequired(
-                supportMeasure.isApplicationRequired()
-        );
+        response.setApplicationRequired(supportMeasure.isApplicationRequired());
         response.setAmount(supportMeasure.getAmount());
         response.setDocuments(supportMeasure.getDocuments());
         response.setValidFrom(supportMeasure.getValidFrom());
         response.setValidTo(supportMeasure.getValidTo());
         response.setActionUrl(supportMeasure.getActionUrl());
+        response.setNpa(npas.stream().map(this::toNpaResponse).toList());
         response.setCreatedAt(supportMeasure.getCreatedAt());
         response.setUpdatedAt(supportMeasure.getUpdatedAt());
 
@@ -107,83 +108,56 @@ public class SupportMeasureMapper {
         mapApplicationChannel(supportMeasure.getApplicationChannel(), response);
         mapFrequency(supportMeasure.getFrequency(), response);
         mapVerificationStatus(supportMeasure.getVerificationStatus(), response);
-
         return response;
     }
 
-    private void mapSupportType(
-            DictionaryValue value,
-            SupportMeasureResponse response
-    ) {
-        if (value == null) {
-            return;
-        }
+    private NpaShortResponse toNpaResponse(Npa npa) {
+        NpaShortResponse response = new NpaShortResponse();
+        response.setNpaId(npa.getNpaId());
+        response.setName(npa.getName());
+        response.setNumber(npa.getNumber());
+        response.setAdoptionDate(npa.getAdoptionDate());
+        response.setOfficialUrl(npa.getOfficialUrl());
+        return response;
+    }
 
+    private void mapSupportType(DictionaryValue value, SupportMeasureResponse response) {
+        if (value == null) return;
         response.setSupportTypeId(value.getDictionaryValueId());
         response.setSupportTypeCode(value.getCode());
         response.setSupportTypeName(value.getLabel());
     }
 
-    private void mapLevel(
-            DictionaryValue value,
-            SupportMeasureResponse response
-    ) {
-        if (value == null) {
-            return;
-        }
-
+    private void mapLevel(DictionaryValue value, SupportMeasureResponse response) {
+        if (value == null) return;
         response.setLevelId(value.getDictionaryValueId());
         response.setLevelCode(value.getCode());
         response.setLevelName(value.getLabel());
     }
 
-    private void mapRecipientType(
-            DictionaryValue value,
-            SupportMeasureResponse response
-    ) {
-        if (value == null) {
-            return;
-        }
-
+    private void mapRecipientType(DictionaryValue value, SupportMeasureResponse response) {
+        if (value == null) return;
         response.setRecipientTypeId(value.getDictionaryValueId());
         response.setRecipientTypeCode(value.getCode());
         response.setRecipientTypeName(value.getLabel());
     }
 
-    private void mapApplicationChannel(
-            DictionaryValue value,
-            SupportMeasureResponse response
-    ) {
-        if (value == null) {
-            return;
-        }
-
+    private void mapApplicationChannel(DictionaryValue value, SupportMeasureResponse response) {
+        if (value == null) return;
         response.setApplicationChannelId(value.getDictionaryValueId());
         response.setApplicationChannelCode(value.getCode());
         response.setApplicationChannelName(value.getLabel());
     }
 
-    private void mapFrequency(
-            DictionaryValue value,
-            SupportMeasureResponse response
-    ) {
-        if (value == null) {
-            return;
-        }
-
+    private void mapFrequency(DictionaryValue value, SupportMeasureResponse response) {
+        if (value == null) return;
         response.setFrequencyId(value.getDictionaryValueId());
         response.setFrequencyCode(value.getCode());
         response.setFrequencyName(value.getLabel());
     }
 
-    private void mapVerificationStatus(
-            DictionaryValue value,
-            SupportMeasureResponse response
-    ) {
-        if (value == null) {
-            return;
-        }
-
+    private void mapVerificationStatus(DictionaryValue value, SupportMeasureResponse response) {
+        if (value == null) return;
         response.setVerificationStatusId(value.getDictionaryValueId());
         response.setVerificationStatusCode(value.getCode());
         response.setVerificationStatusName(value.getLabel());

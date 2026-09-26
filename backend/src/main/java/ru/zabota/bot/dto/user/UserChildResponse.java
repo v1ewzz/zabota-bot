@@ -4,30 +4,24 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /*
- * DTO для возврата информации о ребёнке пользователя.
- *
- * Содержит основные данные ребёнка, а также идентификаторы,
- * коды и отображаемые названия связанных значений справочника.
+ * DTO данных ребёнка в полном профиле пользователя.
  */
 public class UserChildResponse {
 
     private UUID childId;
-
     private LocalDate birthDate;
-
     private UUID educationLevelId;
     private String educationLevelCode;
     private String educationLevelName;
-
     private Short grade;
-
     private boolean disability;
-
     private UUID disabilityGroupId;
     private String disabilityGroupCode;
     private String disabilityGroupName;
-
     private boolean fullTime;
+    private UUID institutionTypeId;
+    private String institutionTypeCode;
+    private String institutionTypeName;
 
     public UserChildResponse() {
     }
@@ -118,5 +112,29 @@ public class UserChildResponse {
 
     public void setFullTime(boolean fullTime) {
         this.fullTime = fullTime;
+    }
+
+    public UUID getInstitutionTypeId() {
+        return institutionTypeId;
+    }
+
+    public void setInstitutionTypeId(UUID institutionTypeId) {
+        this.institutionTypeId = institutionTypeId;
+    }
+
+    public String getInstitutionTypeCode() {
+        return institutionTypeCode;
+    }
+
+    public void setInstitutionTypeCode(String institutionTypeCode) {
+        this.institutionTypeCode = institutionTypeCode;
+    }
+
+    public String getInstitutionTypeName() {
+        return institutionTypeName;
+    }
+
+    public void setInstitutionTypeName(String institutionTypeName) {
+        this.institutionTypeName = institutionTypeName;
     }
 }

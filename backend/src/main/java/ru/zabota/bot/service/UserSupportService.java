@@ -329,12 +329,19 @@ public class UserSupportService {
         }
 
         if (user.getMilitaryStatus() != null) {
-            request.setMilitaryStatusId(
+                request.setMilitaryStatusId(
                     user.getMilitaryStatus().getDictionaryValueId()
             );
         }
 
+        request.setBirthDate(user.getBirthDate());
         request.setPregnancy(user.getPregnancy());
+        request.setPregnancyDays(user.getPregnancyDays());
+
+        if (user.getSex() != null) {
+            request.setSexId(user.getSex().getDictionaryValueId());
+        }
+
         request.setInjury(user.isInjury());
         request.setDisability(user.isDisability());
 
@@ -354,8 +361,21 @@ public class UserSupportService {
         }
 
         if (user.getIncomeCategory() != null) {
-            request.setIncomeCategoryId(
+                request.setIncomeCategoryId(
                     user.getIncomeCategory().getDictionaryValueId()
+            );
+        }
+
+        request.setLoanExists(user.isLoanExists());
+        request.setBusinessPlan(user.isBusinessPlan());
+        request.setJobSeeker(user.isJobSeeker());
+        request.setSocialServiceNeed(user.isSocialServiceNeed());
+        request.setServicemanLeaveStart(user.getServicemanLeaveStart());
+        request.setServicemanLeaveEnd(user.getServicemanLeaveEnd());
+
+        if (user.getLegalIssueCategory() != null) {
+            request.setLegalIssueCategoryId(
+                    user.getLegalIssueCategory().getDictionaryValueId()
             );
         }
 
@@ -380,6 +400,12 @@ public class UserSupportService {
         request.setGrade(child.getGrade());
         request.setDisability(child.isDisability());
         request.setFullTime(child.isFullTime());
+
+        if (child.getInstitutionType() != null) {
+            request.setInstitutionTypeId(
+                    child.getInstitutionType().getDictionaryValueId()
+            );
+        }
 
         if (child.getDisabilityGroup() != null) {
             request.setDisabilityGroupId(

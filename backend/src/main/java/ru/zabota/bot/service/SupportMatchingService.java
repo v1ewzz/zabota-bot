@@ -201,13 +201,16 @@ public class SupportMatchingService {
 
         addIfPresent(ids, request.getFamilyRelationId());
         addIfPresent(ids, request.getMilitaryStatusId());
+        addIfPresent(ids, request.getSexId());
         addIfPresent(ids, request.getDisabilityGroupId());
         addIfPresent(ids, request.getEmploymentStatusId());
         addIfPresent(ids, request.getIncomeCategoryId());
+        addIfPresent(ids, request.getLegalIssueCategoryId());
 
         for (UserChildRequest child : safeChildren(request.getChildren())) {
             addIfPresent(ids, child.getEducationLevelId());
             addIfPresent(ids, child.getDisabilityGroupId());
+            addIfPresent(ids, child.getInstitutionTypeId());
         }
 
         if (ids.isEmpty()) {
@@ -435,8 +438,23 @@ public class SupportMatchingService {
                             request.getMilitaryStatusId()
                     );
 
+            case "birth_date" ->
+                    request.getBirthDate();
+
+            case "user.age" ->
+                    calculateAge(request.getBirthDate(), context.today());
+
+            case "children.count" ->
+                    context.children().size();
+
             case "pregnancy" ->
                     request.getPregnancy();
+
+            case "pregnancy_days" ->
+                    request.getPregnancyDays();
+
+            case "sex_id" ->
+                    context.dictionaryCode(request.getSexId());
 
             case "injury" ->
                     request.isInjury();
@@ -464,6 +482,34 @@ public class SupportMatchingService {
                     context.dictionaryCode(
                             request.getIncomeCategoryId()
                     );
+
+            case "loan_exists" ->
+                    request.isLoanExists();
+
+            case "business_plan" ->
+                    request.isBusinessPlan();
+
+            case "job_seeker" ->
+                    request.isJobSeeker();
+
+            case "social_service_need" ->
+                    request.isSocialServiceNeed();
+
+            case "serviceman_leave_start" ->
+                    request.getServicemanLeaveStart();
+
+            case "serviceman_leave_end" ->
+                    request.getServicemanLeaveEnd();
+
+            case "serviceman_on_leave" ->
+                    isDateInRange(
+                            request.getServicemanLeaveStart(),
+                            request.getServicemanLeaveEnd(),
+                            context.today()
+                    );
+
+            case "legal_issue_category_id" ->
+                    context.dictionaryCode(request.getLegalIssueCategoryId());
 
             default ->
                     throw new BadRequestException(
@@ -506,6 +552,9 @@ public class SupportMatchingService {
 
             case "child.full_time" ->
                     child.isFullTime();
+
+            case "child.institution_type_id" ->
+                    context.dictionaryCode(child.getInstitutionTypeId());
 
             default ->
                     throw new BadRequestException(
@@ -889,6 +938,17 @@ public class SupportMatchingService {
                 parameter.startsWith("child.")
                         || parameter.startsWith("child_")
         );
+    }
+
+    private boolean isDateInRange(
+            LocalDate start,
+            LocalDate end,
+            LocalDate date
+    ) {
+        return start != null
+                && end != null
+                && !date.isBefore(start)
+                && !date.isAfter(end);
     }
 
     private boolean isDateActive(
