@@ -126,6 +126,19 @@ public class UserController {
         return userService.getProfile(id);
     }
 
+    @PutMapping("/{id}/profile")
+    @Operation(
+            summary = "Обновить анкету и повторить подбор",
+            description = "Полностью сохраняет новую анкету и сразу пересчитывает персональные меры поддержки"
+    )
+    public UserProfileResponse updateProfileAndRematch(
+            @Parameter(description = "Идентификатор пользователя", required = true)
+            @PathVariable UUID id,
+            @Valid @RequestBody UserRequest request
+    ) {
+        return userService.updateAndRematch(id, request);
+    }
+
     @PutMapping("/{id}")
     @Operation(
             summary = "Обновить пользователя",

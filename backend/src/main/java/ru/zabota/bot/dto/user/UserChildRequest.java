@@ -6,75 +6,78 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /*
- * DTO для создания и обновления данных ребёнка пользователя.
- *
- * Содержит данные, которые клиент передаёт серверу
- * для создания или изменения информации о ребёнке.
+ * DTO данных ребёнка в анкете пользователя.
  */
 public class UserChildRequest {
 
-        @NotNull(message = "Дата рождения ребёнка обязательна")
-        private LocalDate birthDate;
+    @NotNull(message = "Дата рождения ребёнка обязательна")
+    private LocalDate birthDate;
 
-        @NotNull(message = "Уровень образования обязателен")
-        private UUID educationLevelId;
+    @NotNull(message = "Уровень образования обязателен")
+    private UUID educationLevelId;
 
-        private Short grade;
+    private Short grade;
+    private boolean disability;
+    private UUID disabilityGroupId;
+    private boolean fullTime;
+    private UUID institutionTypeId;
 
-        private boolean disability;
+    public UserChildRequest() {
+    }
 
-        private UUID disabilityGroupId;
+    public LocalDate getBirthDate() {
+        return birthDate;
+    }
 
-        private boolean fullTime;
+    public void setBirthDate(LocalDate birthDate) {
+        this.birthDate = birthDate;
+    }
 
-        public UserChildRequest() {
-        }
+    public UUID getEducationLevelId() {
+        return educationLevelId;
+    }
 
-        public LocalDate getBirthDate() {
-                return birthDate;
-        }
+    public void setEducationLevelId(UUID educationLevelId) {
+        this.educationLevelId = educationLevelId;
+    }
 
-        public void setBirthDate(LocalDate birthDate) {
-                this.birthDate = birthDate;
-        }
+    public Short getGrade() {
+        return grade;
+    }
 
-        public UUID getEducationLevelId() {
-                return educationLevelId;
-        }
+    public void setGrade(Short grade) {
+        this.grade = grade;
+    }
 
-        public void setEducationLevelId(UUID educationLevelId) {
-                this.educationLevelId = educationLevelId;
-        }
+    public boolean isDisability() {
+        return disability;
+    }
 
-        public Short getGrade() {
-                return grade;
-        }
+    public void setDisability(boolean disability) {
+        this.disability = disability;
+    }
 
-        public void setGrade(Short grade) {
-                this.grade = grade;
-        }
+    public UUID getDisabilityGroupId() {
+        return disabilityGroupId;
+    }
 
-        public boolean isDisability() {
-                return disability;
-        }
+    public void setDisabilityGroupId(UUID disabilityGroupId) {
+        this.disabilityGroupId = disabilityGroupId;
+    }
 
-        public void setDisability(boolean disability) {
-                this.disability = disability;
-        }
+    public boolean isFullTime() {
+        return fullTime;
+    }
 
-        public UUID getDisabilityGroupId() {
-                return disabilityGroupId;
-        }
+    public void setFullTime(boolean fullTime) {
+        this.fullTime = fullTime;
+    }
 
-        public void setDisabilityGroupId(UUID disabilityGroupId) {
-                this.disabilityGroupId = disabilityGroupId;
-        }
+    public UUID getInstitutionTypeId() {
+        return institutionTypeId;
+    }
 
-        public boolean isFullTime() {
-                return fullTime;
-        }
-
-        public void setFullTime(boolean fullTime) {
-                this.fullTime = fullTime;
-        }
+    public void setInstitutionTypeId(UUID institutionTypeId) {
+        this.institutionTypeId = institutionTypeId;
+    }
 }

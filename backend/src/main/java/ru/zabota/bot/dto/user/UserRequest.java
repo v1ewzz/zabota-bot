@@ -5,178 +5,257 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 /*
-
- * DTO для создания и обновления профиля пользователя.
+ * DTO создания и обновления профиля и анкеты пользователя.
  *
- * Содержит территориальные данные, социальные признаки,
- * справочные значения и список детей.
- *
- * Справочные и территориальные сущности передаются
- * через UUID, а не через JPA Entity.
+ * Содержит территориальные, семейные, военные, медицинские,
+ * жилищные, трудовые, финансовые и дополнительные параметры,
+ * используемые rules engine.
  */
 public class UserRequest {
 
-        @NotBlank(message = "Имя обязательно")
-        @Size(max = 100, message = "Имя не должно превышать 100 символов")
-        private String firstName;
+    @NotBlank(message = "Имя обязательно")
+    @Size(max = 100, message = "Имя не должно превышать 100 символов")
+    private String firstName;
 
-        @NotBlank(message = "Фамилия обязательна")
-        @Size(max = 100, message = "Фамилия не должна превышать 100 символов")
-        private String lastName;
+    @NotBlank(message = "Фамилия обязательна")
+    @Size(max = 100, message = "Фамилия не должна превышать 100 символов")
+    private String lastName;
 
-        @NotNull(message = "Регион обязателен")
-        private UUID regionId;
+    @NotNull(message = "Регион обязателен")
+    private UUID regionId;
 
-        @NotNull(message = "Муниципалитет обязателен")
-        private UUID municipalityId;
+    @NotNull(message = "Муниципалитет обязателен")
+    private UUID municipalityId;
 
-        private UUID familyRelationId;
+    private UUID familyRelationId;
+    private UUID militaryStatusId;
+    private LocalDate birthDate;
+    private Boolean pregnancy;
+    private Short pregnancyDays;
+    private UUID sexId;
+    private boolean injury;
+    private boolean disability;
+    private UUID disabilityGroupId;
+    private boolean housingProblem;
+    private boolean gasificationNeeded;
+    private UUID employmentStatusId;
+    private UUID incomeCategoryId;
+    private boolean loanExists;
+    private boolean businessPlan;
+    private boolean jobSeeker;
+    private boolean socialServiceNeed;
+    private LocalDate servicemanLeaveStart;
+    private LocalDate servicemanLeaveEnd;
+    private UUID legalIssueCategoryId;
 
-        private UUID militaryStatusId;
+    @Valid
+    private List<UserChildRequest> children;
 
-        private Boolean pregnancy;
+    public UserRequest() {
+    }
 
-        private boolean injury;
+    public String getFirstName() {
+        return firstName;
+    }
 
-        private boolean disability;
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
 
-        private UUID disabilityGroupId;
+    public String getLastName() {
+        return lastName;
+    }
 
-        private boolean housingProblem;
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
 
-        private boolean gasificationNeeded;
+    public UUID getRegionId() {
+        return regionId;
+    }
 
-        private UUID employmentStatusId;
+    public void setRegionId(UUID regionId) {
+        this.regionId = regionId;
+    }
 
-        private UUID incomeCategoryId;
+    public UUID getMunicipalityId() {
+        return municipalityId;
+    }
 
-        @Valid
-        private List<UserChildRequest> children;
+    public void setMunicipalityId(UUID municipalityId) {
+        this.municipalityId = municipalityId;
+    }
 
-        public UserRequest() {
-        }
+    public UUID getFamilyRelationId() {
+        return familyRelationId;
+    }
 
-        public String getFirstName() {
-                return firstName;
-        }
+    public void setFamilyRelationId(UUID familyRelationId) {
+        this.familyRelationId = familyRelationId;
+    }
 
-        public void setFirstName(String firstName) {
-                this.firstName = firstName;
-        }
+    public UUID getMilitaryStatusId() {
+        return militaryStatusId;
+    }
 
-        public String getLastName() {
-                return lastName;
-        }
+    public void setMilitaryStatusId(UUID militaryStatusId) {
+        this.militaryStatusId = militaryStatusId;
+    }
 
-        public void setLastName(String lastName) {
-                this.lastName = lastName;
-        }
+    public LocalDate getBirthDate() {
+        return birthDate;
+    }
 
-        public UUID getRegionId() {
-                return regionId;
-        }
+    public void setBirthDate(LocalDate birthDate) {
+        this.birthDate = birthDate;
+    }
 
-        public boolean isGasificationNeeded() {
-                return gasificationNeeded;
-        }
+    public Boolean getPregnancy() {
+        return pregnancy;
+    }
 
-        public void setGasificationNeeded(boolean gasificationNeeded) {
-                this.gasificationNeeded = gasificationNeeded;
-        }
+    public void setPregnancy(Boolean pregnancy) {
+        this.pregnancy = pregnancy;
+    }
 
-        public void setRegionId(UUID regionId) {
-                this.regionId = regionId;
-        }
+    public Short getPregnancyDays() {
+        return pregnancyDays;
+    }
 
-        public UUID getMunicipalityId() {
-                return municipalityId;
-        }
+    public void setPregnancyDays(Short pregnancyDays) {
+        this.pregnancyDays = pregnancyDays;
+    }
 
-        public void setMunicipalityId(UUID municipalityId) {
-                this.municipalityId = municipalityId;
-        }
+    public UUID getSexId() {
+        return sexId;
+    }
 
-        public UUID getFamilyRelationId() {
-                return familyRelationId;
-        }
+    public void setSexId(UUID sexId) {
+        this.sexId = sexId;
+    }
 
-        public void setFamilyRelationId(UUID familyRelationId) {
-                this.familyRelationId = familyRelationId;
-        }
+    public boolean isInjury() {
+        return injury;
+    }
 
-        public UUID getMilitaryStatusId() {
-                return militaryStatusId;
-        }
+    public void setInjury(boolean injury) {
+        this.injury = injury;
+    }
 
-        public void setMilitaryStatusId(UUID militaryStatusId) {
-                this.militaryStatusId = militaryStatusId;
-        }
+    public boolean isDisability() {
+        return disability;
+    }
 
-        public Boolean getPregnancy() {
-                return pregnancy;
-        }
+    public void setDisability(boolean disability) {
+        this.disability = disability;
+    }
 
-        public void setPregnancy(Boolean pregnancy) {
-                this.pregnancy = pregnancy;
-        }
+    public UUID getDisabilityGroupId() {
+        return disabilityGroupId;
+    }
 
-        public boolean isInjury() {
-                return injury;
-        }
+    public void setDisabilityGroupId(UUID disabilityGroupId) {
+        this.disabilityGroupId = disabilityGroupId;
+    }
 
-        public void setInjury(boolean injury) {
-                this.injury = injury;
-        }
+    public boolean isHousingProblem() {
+        return housingProblem;
+    }
 
-        public boolean isDisability() {
-                return disability;
-        }
+    public void setHousingProblem(boolean housingProblem) {
+        this.housingProblem = housingProblem;
+    }
 
-        public void setDisability(boolean disability) {
-                this.disability = disability;
-        }
+    public boolean isGasificationNeeded() {
+        return gasificationNeeded;
+    }
 
-        public UUID getDisabilityGroupId() {
-                return disabilityGroupId;
-        }
+    public void setGasificationNeeded(boolean gasificationNeeded) {
+        this.gasificationNeeded = gasificationNeeded;
+    }
 
-        public void setDisabilityGroupId(UUID disabilityGroupId) {
-                this.disabilityGroupId = disabilityGroupId;
-        }
+    public UUID getEmploymentStatusId() {
+        return employmentStatusId;
+    }
 
-        public boolean isHousingProblem() {
-                return housingProblem;
-        }
+    public void setEmploymentStatusId(UUID employmentStatusId) {
+        this.employmentStatusId = employmentStatusId;
+    }
 
-        public void setHousingProblem(boolean housingProblem) {
-                this.housingProblem = housingProblem;
-        }
+    public UUID getIncomeCategoryId() {
+        return incomeCategoryId;
+    }
 
-        public UUID getEmploymentStatusId() {
-                return employmentStatusId;
-        }
+    public void setIncomeCategoryId(UUID incomeCategoryId) {
+        this.incomeCategoryId = incomeCategoryId;
+    }
 
-        public void setEmploymentStatusId(UUID employmentStatusId) {
-                this.employmentStatusId = employmentStatusId;
-        }
+    public boolean isLoanExists() {
+        return loanExists;
+    }
 
-        public UUID getIncomeCategoryId() {
-                return incomeCategoryId;
-        }
+    public void setLoanExists(boolean loanExists) {
+        this.loanExists = loanExists;
+    }
 
-        public void setIncomeCategoryId(UUID incomeCategoryId) {
-                this.incomeCategoryId = incomeCategoryId;
-        }
+    public boolean isBusinessPlan() {
+        return businessPlan;
+    }
 
-        public List<UserChildRequest> getChildren() {
-                return children;
-        }
+    public void setBusinessPlan(boolean businessPlan) {
+        this.businessPlan = businessPlan;
+    }
 
-        public void setChildren(List<UserChildRequest> children) {
-                this.children = children;
-        }
+    public boolean isJobSeeker() {
+        return jobSeeker;
+    }
+
+    public void setJobSeeker(boolean jobSeeker) {
+        this.jobSeeker = jobSeeker;
+    }
+
+    public boolean isSocialServiceNeed() {
+        return socialServiceNeed;
+    }
+
+    public void setSocialServiceNeed(boolean socialServiceNeed) {
+        this.socialServiceNeed = socialServiceNeed;
+    }
+
+    public LocalDate getServicemanLeaveStart() {
+        return servicemanLeaveStart;
+    }
+
+    public void setServicemanLeaveStart(LocalDate servicemanLeaveStart) {
+        this.servicemanLeaveStart = servicemanLeaveStart;
+    }
+
+    public LocalDate getServicemanLeaveEnd() {
+        return servicemanLeaveEnd;
+    }
+
+    public void setServicemanLeaveEnd(LocalDate servicemanLeaveEnd) {
+        this.servicemanLeaveEnd = servicemanLeaveEnd;
+    }
+
+    public UUID getLegalIssueCategoryId() {
+        return legalIssueCategoryId;
+    }
+
+    public void setLegalIssueCategoryId(UUID legalIssueCategoryId) {
+        this.legalIssueCategoryId = legalIssueCategoryId;
+    }
+
+    public List<UserChildRequest> getChildren() {
+        return children;
+    }
+
+    public void setChildren(List<UserChildRequest> children) {
+        this.children = children;
+    }
 }

@@ -3,6 +3,7 @@ package ru.zabota.bot.dto.support;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /*
@@ -53,6 +54,8 @@ public class SupportMeasureResponse {
     private String verificationStatusName;
 
     private String actionUrl;
+
+    private List<NpaShortResponse> npa;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -266,6 +269,14 @@ public class SupportMeasureResponse {
 
     public void setVerificationStatusName(String verificationStatusName) {
         this.verificationStatusName = verificationStatusName;
+    }
+
+    public List<NpaShortResponse> getNpa() {
+        return npa;
+    }
+
+    public void setNpa(List<NpaShortResponse> npa) {
+        this.npa = npa;
     }
 
     public String getActionUrl() {
