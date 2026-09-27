@@ -42,7 +42,48 @@ const BASE_STEPS = [
     title: 'Доход и занятость',
     subtitle: 'Ориентир по доходу помогает учитывать адресные меры.',
   },
+  {
+    id: 'additional',
+    title: 'Дополнительные условия',
+    subtitle: 'Уточните обстоятельства, которые могут быть важны для отдельных мер поддержки.',
+  },
 ]
+
+const CHILD_EDUCATION_TYPES = [
+  { code: 'PRESCHOOL', label: 'Детский сад' },
+  { code: 'SCHOOL', label: 'Школа' },
+  { code: 'COLLEGE', label: 'Колледж' },
+  { code: 'UNIVERSITY', label: 'Вуз' },
+  { code: 'NONE', label: 'Учреждение не указано' },
+]
+
+function childMinBirthDate() {
+  return '1900-01-01'
+}
+
+function validChildBirthDate(value) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  return Number.isInteger(year)
+    && Number.isInteger(month)
+    && Number.isInteger(day)
+    && date.getFullYear() === year
+    && date.getMonth() === month - 1
+    && date.getDate() === day
+    && value >= childMinBirthDate()
+    && value <= todayStr()
+}
+
+const ADDITIONAL_FIELDS = {
+  loanExists: false,
+  businessPlan: false,
+  jobSeeker: false,
+  socialServiceNeed: false,
+  legalHelpNeeded: false,
+  legalIssueCategory: null,
+  legalIssueCategoryId: null,
+}
 
 const CHILD_EXTRA_FIELDS = {
   applicantBirthDate: '',
@@ -67,6 +108,7 @@ const EMPTY = {
   incomeCategoryId: null,
   employmentStatusId: null,
   ...CHILD_EXTRA_FIELDS,
+  ...ADDITIONAL_FIELDS,
 }
 
 function suggestEducation(birthDate) {
@@ -107,8 +149,19 @@ export default function Survey() {
 
   const step = steps[stepIndex] || steps[steps.length - 1]
   const familyRelationOptions = useMemo(() => withAvailability(DICT.FAMILY_RELATION, 'familyRelation'), [])
-  const militaryStatusOptions = useMemo(() => withAvailability(DICT.MILITARY_STATUS, 'militaryStatus'), [])
+  const militaryStatusOptions = useMemo(
+    () => withAvailability(DICT.MILITARY_STATUS, 'militaryStatus').filter((option) => option.code !== 'CONSCRIPT'),
+    []
+  )
   const educationOptions = useMemo(() => withAvailability(DICT.EDUCATION_LEVEL, 'educationLevel'), [])
+  const childEducationTypeOptions = useMemo(() => CHILD_EDUCATION_TYPES.map((option) => ({
+    ...option,
+    disabled: option.code !== 'SCHOOL' && option.code !== 'NONE' && !hasBackendId('educationLevel', option.code),
+    disabledHint: option.code !== 'SCHOOL' && option.code !== 'NONE' && !hasBackendId('educationLevel', option.code)
+      ? 'Этот вариант пока не подключён к справочнику подбора.'
+      : '',
+  })), [])
+  const legalIssueOptions = useMemo(() => DICT.LEGAL_ISSUE_CATEGORY || [], [])
   const parentRelationOptions = useMemo(
     () => familyRelationOptions.filter((option) => option.code === 'MOTHER' || option.code === 'FATHER'),
     [familyRelationOptions]
@@ -149,11 +202,15 @@ export default function Survey() {
       case 'location':
         return Boolean(draft.region && draft.municipality)
       case 'children':
-        return draft.children.every((child) => Boolean(child.birthDate && child.educationLevel))
+        return draft.children.every((child) => Boolean(child.birthDate)
+          && validChildBirthDate(child.birthDate)
+          && (child.educationType === 'NONE' || Boolean(child.educationLevel)))
       case 'health':
         return !draft.disability || !hasAnyDisabilityGroup || Boolean(draft.disabilityGroup)
       case 'income':
         return Boolean(draft.incomeRange)
+      case 'additional':
+        return !draft.legalHelpNeeded || Boolean(draft.legalIssueCategory || draft.legalIssueCategoryId)
       default:
         return true
     }
@@ -161,7 +218,13 @@ export default function Survey() {
 
   const next = () => {
     if (!valid) {
-      showToast('Заполните обязательные поля')
+      if (step.id === 'children') {
+        showToast('Проверьте дату рождения и образование детей')
+      } else if (step.id === 'additional') {
+        showToast('Укажите категорию юридического вопроса')
+      } else {
+        showToast('Заполните обязательные поля')
+      }
       return
     }
 
@@ -203,6 +266,7 @@ export default function Survey() {
         id: `c-${Date.now()}`,
         birthDate: '',
         educationLevel: null,
+        educationType: null,
         grade: null,
         disability: false,
         disabilityGroup: null,
@@ -373,26 +437,43 @@ export default function Survey() {
                   <input
                     className="input"
                     type="date"
+                    min={childMinBirthDate()}
                     max={todayStr()}
                     value={child.birthDate}
                     onChange={(event) => updateChild(child.id, {
                       birthDate: event.target.value,
                       ...suggestEducation(event.target.value),
+                      educationType: suggestEducation(event.target.value).educationLevel,
                     })}
                   />
+                  {child.birthDate && !validChildBirthDate(child.birthDate) && (
+                    <span className="field__error">Укажите реальную дату рождения ребёнка в допустимом диапазоне.</span>
+                  )}
                 </label>
 
                 <Select
-                  label="Где учится"
-                  value={child.educationLevel}
-                  options={educationOptions}
+                  label="Образовательное учреждение"
+                  value={child.educationType || child.educationLevel}
+                  options={childEducationTypeOptions}
                   onChange={(value) => updateChild(child.id, {
-                    educationLevel: value,
+                    educationType: value,
+                    educationLevel: value === 'NONE'
+                      ? child.educationLevel
+                      : (hasBackendId('educationLevel', value) ? value : child.educationLevel),
                     grade: value === 'SCHOOL'
                       ? (child.grade ?? Math.max(1, (calcAge(child.birthDate) || 7) - 6))
                       : null,
                   })}
+                  placeholder="Выберите…"
                 />
+
+                {child.educationType === 'NONE' && (
+                  <div className="banner banner--info">Учреждение не привязывается к анкете. Такой ребёнок не используется в правилах подбора, связанных с образовательной организацией.</div>
+                )}
+
+                {child.educationType && child.educationType !== 'NONE' && !hasBackendId('educationLevel', child.educationType) && (
+                  <div className="banner banner--warn">Этот вариант уже доступен в интерфейсе, но пока не подключён к backend-справочнику и не влияет на расчёт мер.</div>
+                )}
 
                 {child.educationLevel === 'SCHOOL' && (
                   <Select
@@ -536,6 +617,61 @@ export default function Survey() {
         </div>
       )}
 
+      {step.id === 'additional' && (
+        <div className="stack">
+          <ToggleRow
+            label="Есть действующий кредит или ипотека"
+            hint="Нужно для мер, связанных с кредитными обязательствами участников СВО."
+            checked={draft.loanExists}
+            onChange={(value) => set({ loanExists: value })}
+          />
+
+          <ToggleRow
+            label="Есть бизнес-план для открытия или развития своего дела"
+            hint="Может использоваться для мер поддержки предпринимательства и самозанятости."
+            checked={draft.businessPlan}
+            onChange={(value) => set({ businessPlan: value })}
+          />
+
+          <ToggleRow
+            label="Сейчас ищете работу"
+            hint="Уточнение для мер содействия занятости."
+            checked={draft.jobSeeker}
+            onChange={(value) => set({ jobSeeker: value })}
+          />
+
+          <ToggleRow
+            label="Нужна социальная помощь или социальное обслуживание"
+            hint="Ответ используется для отдельных социальных услуг."
+            checked={draft.socialServiceNeed}
+            onChange={(value) => set({ socialServiceNeed: value })}
+          />
+
+          <ToggleRow
+            label="Нужна юридическая помощь"
+            hint="Выберите категорию вопроса, чтобы уточнить юридические меры поддержки."
+            checked={draft.legalHelpNeeded}
+            onChange={(value) => set({
+              legalHelpNeeded: value,
+              ...(value ? {} : { legalIssueCategory: null, legalIssueCategoryId: null }),
+            })}
+          />
+
+          {draft.legalHelpNeeded && (
+            <Select
+              label="Категория юридического вопроса"
+              value={draft.legalIssueCategory}
+              options={legalIssueOptions}
+              onChange={(value) => set({
+                legalIssueCategory: value,
+                legalIssueCategoryId: legalIssueOptions.find((option) => option.code === value)?.id || null,
+              })}
+              placeholder="Выберите…"
+            />
+          )}
+        </div>
+      )}
+
       {step.id === 'finish' && (
         <div className="stack">
           <div className="card review">
@@ -555,6 +691,16 @@ export default function Survey() {
                 : `${draft.children.length} ${plural(draft.children.length, ['ребёнок', 'ребёнка', 'детей'])}`}
             />
             <ReviewRow title="Доход" value={DICT.INCOME_RANGE.find((item) => item.code === draft.incomeRange)?.label} />
+            <ReviewRow title="Кредит / ипотека" value={draft.loanExists ? 'Есть' : 'Нет'} />
+            <ReviewRow title="Бизнес-план" value={draft.businessPlan ? 'Есть' : 'Нет'} />
+            <ReviewRow title="Поиск работы" value={draft.jobSeeker ? 'Ищу работу' : 'Не ищу'} />
+            <ReviewRow title="Социальная помощь" value={draft.socialServiceNeed ? 'Нужна' : 'Не нужна'} />
+            <ReviewRow
+              title="Юридическая помощь"
+              value={draft.legalHelpNeeded
+                ? (legalIssueOptions.find((item) => item.code === draft.legalIssueCategory)?.label || 'Категория не указана')
+                : 'Не нужна'}
+            />
             <ReviewRow title="Профиль" value={profile?.fullName || '—'} />
           </div>
 
