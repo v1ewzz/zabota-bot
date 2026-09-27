@@ -1,32 +1,36 @@
+# Локальный стенд для проверки перед деплоем.
+# ВНИМАНИЕ: Amvera docker-compose.yml НЕ поддерживает (только Dockerfile).
+# Собирается ровно тот же корневой образ, что уедет в Amvera.
 services:
-  backend:
-    build: ./backend
-    depends_on:
-      - db
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/zabota
-      - SPRING_DATASOURCE_USERNAME=zabota_user
-      - SPRING_DATASOURCE_PASSWORD=changeme
-      - MAX_BOT_TOKEN=${MAX_BOT_TOKEN}
-    # ports и детали настройки будут добавлены позже
-
-  frontend:
-    build: ./frontend
+      # Перекрывает DB_URL из .env: локально БД живёт в контейнере db.
+      # Формат строки повторяет amvera, отличается только хост.
+      DB_URL: jdbc:postgresql://db:5432/zabota
+    ports:
+      - "8080:80"
     depends_on:
-      - backend
-    environment:
-      - VITE_BACKEND_URL=http://backend:8080
-    # ports и детали настройки будут добавлены позже
+      db:
+        condition: service_healthy
 
   db:
     image: postgres:16
     environment:
-      - POSTGRES_DB=zabota
-      - POSTGRES_USER=zabota_user
-      - POSTGRES_PASSWORD=changeme
+      POSTGRES_DB: zabota
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - db_data:/var/lib/postgresql/data
-    # ports и детали настройки будут добавлены позже
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d zabota"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
 volumes:
   db_data:

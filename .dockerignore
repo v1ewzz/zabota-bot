@@ -1,0 +1,17 @@
+# Секреты — никогда не должны попасть в образ
+.env
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Сборочные артефакты
+**/node_modules
+**/target
+**/dist
+
+# Служебное
+.git
+.gitignore
+.gitattributes
+docker-compose.yml
+docs/
