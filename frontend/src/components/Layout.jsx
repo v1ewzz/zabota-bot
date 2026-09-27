@@ -7,6 +7,7 @@ const TITLES = {
   '/survey': 'Анкета',
   '/results': 'Результаты',
   '/account': 'Профиль',
+  '/questionnaire': 'Анкета',
   '/print': 'Сводка',
 }
 
@@ -36,9 +37,15 @@ export default function Layout({ children }) {
   const navigate = useNavigate()
 
   const isHome = pathname === '/'
+  const isAccount = pathname === '/account'
   const title = TITLES[pathname] || 'Мера поддержки'
-  const backTarget = pathname.startsWith('/measure/') ? '/results' : pathname === '/print' ? '/account' : '/'
-  const showBottomNav = Boolean(profile?.firstName && profile?.lastName) && ['/results', '/account'].includes(pathname)
+  const backTarget = pathname.startsWith('/measure/')
+    ? '/results'
+    : pathname === '/print' || pathname === '/questionnaire'
+      ? '/account'
+      : '/'
+  const showBottomNav = Boolean(profile?.firstName && profile?.lastName)
+    && ['/results', '/account', '/questionnaire'].includes(pathname)
 
   const handleBack = () => navigate(backTarget)
 
@@ -47,18 +54,18 @@ export default function Layout({ children }) {
   }, [pathname])
 
   useEffect(() => {
-    if (!isMax() || isHome) {
+    if (!isMax() || isHome || isAccount) {
       hideBackButton()
       return undefined
     }
 
     showBackButton(handleBack)
     return () => hideBackButton(handleBack)
-  }, [pathname, backTarget, isHome])
+  }, [pathname, backTarget, isHome, isAccount])
 
   return (
     <div className={`app${showBottomNav ? ' app--with-nav' : ''}`}>
-      {!isHome && (
+      {!isHome && !isAccount && (
         <header className="header">
           <button className="back-btn" type="button" onClick={handleBack} aria-label="Назад">
             <BackIcon />
