@@ -25,8 +25,6 @@ export const IDS = {
     VETERAN_BD: '17d0c090-c071-4fd0-aada-025a16e92799',
     DECEASED_MILITARY: '70a2e5ec-3391-4063-bc53-090083c471d7',
     VOLUNTEER_SVO: '43b47d65-16cd-4e03-999e-acb732b3acde',
-
-    // Compatibility for profiles created by older frontend versions.
     CONTRACT: '212cd8e2-b0de-41b6-8dbf-436f9c323fa0',
     VETERAN: '17d0c090-c071-4fd0-aada-025a16e92799',
     DECEASED: '70a2e5ec-3391-4063-bc53-090083c471d7',
@@ -56,8 +54,11 @@ export const IDS = {
   educationLevel: {
     SCHOOL: '3fd49a30-e781-446f-a85e-619fed1026f8',
     PRESCHOOL: env.VITE_EDUCATION_LEVEL_PRESCHOOL_ID || null,
-    COLLEGE: env.VITE_EDUCATION_LEVEL_COLLEGE_ID || null,
-    UNIVERSITY: env.VITE_EDUCATION_LEVEL_UNIVERSITY_ID || null,
+    COLLEGE: env.VITE_EDUCATION_LEVEL_COLLEGE_ID || '417f4f9d-e78e-4317-95ff-04a27ec0dabc',
+    UNIVERSITY: env.VITE_EDUCATION_LEVEL_UNIVERSITY_ID || '32b94279-f374-485c-85c8-58225b8536a3',
+    SPO: '417f4f9d-e78e-4317-95ff-04a27ec0dabc',
+    BACHELOR: '32b94279-f374-485c-85c8-58225b8536a3',
+    SPECIALIST: 'cb523a01-8530-4f57-b298-8c861ae0af30',
   },
 }
 
@@ -71,13 +72,9 @@ export function hasBackendId(kind, code, explicitId = null) {
 
 export function requireBackendId(kind, code, label) {
   const id = getBackendId(kind, code)
-
   if (!id) {
-    throw new Error(
-      `Не удалось определить «${label || code}». Выберите другой вариант или обновите справочники.`
-    )
+    throw new Error(`Не удалось определить «${label || code}». Выберите другой вариант или обновите справочники.`)
   }
-
   return id
 }
 
@@ -87,12 +84,8 @@ export function municipalityId(region, municipality) {
 
 export function requireMunicipalityId(region, municipality) {
   const id = municipalityId(region, municipality)
-
   if (!id) {
-    throw new Error(
-      'Для выбранного города или района пока нет подключённого значения. Выберите Казань или другой доступный вариант.'
-    )
+    throw new Error('Для выбранного города или района пока нет подключённого значения. Выберите Казань или другой доступный вариант.')
   }
-
   return id
 }

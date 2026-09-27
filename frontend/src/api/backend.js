@@ -1,15 +1,27 @@
 import { apiFetch } from './client'
-import { IDS, getBackendId, requireBackendId, requireMunicipalityId } from './ids'
+import { IDS, requireBackendId, requireMunicipalityId } from './ids'
+
+function optionalId(kind, code, explicitId) {
+  return explicitId || (code ? IDS[kind]?.[code] : null) || null
+}
+
+function cleanMeasureDescription(value) {
+  if (typeof value !== 'string' || !value.trim()) return ''
+
+  return value
+    .replace(
+      /\s*Основные критерии для алгоритма\s*:\s*.*?(?=\s+(?:Что даёт|Кто получает|Размер\s*\/\s*вид поддержки|Размер|Заявление|Куда обращаться|Документы|Статус|Основание|Срок)\s*:|$)/gis,
+      ' '
+    )
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
 
 function incomeBroadCode(range) {
   if (!range || range === 'UNKNOWN') return null
   if (range === 'UNDER_27' || range === '27_40') return 'LOW'
   if (range === '40_60' || range === '60_100') return 'MIDDLE'
   return 'HIGH'
-}
-
-function optionalId(kind, code, explicitId) {
-  return explicitId || (code ? IDS[kind]?.[code] : null) || null
 }
 
 function normalizeDocuments(value) {
@@ -30,7 +42,7 @@ function normalizeMeasure(raw) {
     id: raw?.supportId ?? raw?.id ?? null,
     userSupportId: raw?.userSupportId ?? null,
     name: typeof raw?.name === 'string' ? raw.name.trim() : '',
-    description: typeof raw?.description === 'string' ? raw.description.trim() : '',
+    description: cleanMeasureDescription(raw?.description),
     amount: normalizeAmount(raw?.amount),
     frequency: normalizeFrequency(raw),
     applicationRequired: Boolean(raw?.applicationRequired),
@@ -96,22 +108,24 @@ function toUserRequest(profile) {
     profile.municipality
   )
 
-  const children = (profile.children || []).map((child) => ({
-    birthDate: child.birthDate,
-    educationLevelId: requireBackendId(
-      'educationLevel',
-      child.educationLevel,
-      'уровень образования ребёнка'
-    ),
-    grade: child.grade ?? null,
-    disability: Boolean(child.disability),
-    disabilityGroupId: optionalId(
-      'disabilityGroup',
-      child.disabilityGroup,
-      child.disabilityGroupId
-    ),
-    fullTime: Boolean(child.fullTime),
-  }))
+  const children = (profile.children || [])
+    .filter((child) => child.educationType !== 'NONE')
+    .map((child) => ({
+      birthDate: child.birthDate,
+      educationLevelId: requireBackendId(
+        'educationLevel',
+        child.educationLevel,
+        'уровень образования ребёнка'
+      ),
+      grade: child.grade ?? null,
+      disability: Boolean(child.disability),
+      disabilityGroupId: optionalId(
+        'disabilityGroup',
+        child.disabilityGroup,
+        child.disabilityGroupId
+      ),
+      fullTime: Boolean(child.fullTime),
+    }))
 
   return {
     firstName: String(profile.firstName || '').trim(),
@@ -148,6 +162,13 @@ function toUserRequest(profile) {
       incomeBroadCode(profile.incomeRange),
       profile.incomeCategoryId
     ),
+    loanExists: Boolean(profile.loanExists),
+    businessPlan: Boolean(profile.businessPlan),
+    jobSeeker: Boolean(profile.jobSeeker),
+    socialServiceNeed: Boolean(profile.socialServiceNeed),
+    legalIssueCategoryId: profile.legalHelpNeeded
+      ? (profile.legalIssueCategoryId || null)
+      : null,
     children,
   }
 }
@@ -270,8 +291,4 @@ export async function updateUserSupport(userId, userSupportId, patch) {
     method: 'PATCH',
     body: JSON.stringify(request),
   })
-}
-
-export async function requestMfc() {
-  throw new Error('Заявка в МФЦ пока не реализована на backend.')
 }
