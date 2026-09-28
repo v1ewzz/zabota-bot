@@ -28,18 +28,17 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-RUN apk add --no-cache nginx gettext
+RUN apk add --no-cache nginx
 
 COPY --from=backend-builder /app/backend/target/*.jar /app/backend/app.jar
 COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
-COPY frontend/nginx.conf.template /etc/nginx/nginx.conf.template
 
-# 127.0.0.1, а не localhost: в alpine localhost резолвится в ::1 первым.
-# Amvera не передаёт переменные окружения на этапе сборки, поэтому значение
-# фиксируется здесь; SERVER_PORT в amvera.yaml не выставлять — дефолт 8080 совпадает.
-ENV API_UPSTREAM=http://127.0.0.1:8080
-RUN envsubst '${API_UPSTREAM}' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
-
+# Upstream жёстко зашит в самом шаблоне (http://127.0.0.1:8080, а не localhost:
+# в alpine localhost резолвится в ::1 первым). Подстановки через envsubst нет
+# намеренно — файл копируется как есть, ${API_UPSTREAM} в нём не
+# используется. Amvera не передаёт переменные окружения на этапе сборки;
+# SERVER_PORT в amvera.yaml не выставлять — дефолт 8080 совпадает.
+COPY frontend/nginx.conf.template /etc/nginx/nginx.conf
 EXPOSE 80
 
 CMD ["sh", "-c", "nginx -t && nginx && exec java -XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError -jar /app/backend/app.jar"]

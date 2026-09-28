@@ -36,31 +36,6 @@ const CHANNEL_HELP = {
   BANK: 'Уточните порядок оформления непосредственно в банке.',
 }
 
-// FIX (дизайн, п. «значок у МФЦ»): раньше для любого канала обращения
-// (Госуслуги, МФЦ, банк, школа и т.д.) использовалась одна и та же мелкая
-// стрелка «↗», из-за чего иконка визуально терялась и не несла смысла.
-// Теперь иконка подбирается по типу канала — крупнее и по существу.
-const CHANNEL_ICON = {
-  GOSUSLUGI: '🌐',
-  SFR: '🏛',
-  MFC: '🏢',
-  SCHOOL: '🏫',
-  EDUCATIONAL_ORGANIZATION: '🏫',
-  FNS: '🧾',
-  BANK: '🏦',
-  SOCIAL_PROTECTION: '🛡',
-  MILITARY_UNIT: '🎖',
-  MILITARY_COMMISSARIAT: '🎖',
-  UNIVERSITY: '🎓',
-  EMPLOYMENT_SERVICE: '💼',
-  EMPLOYMENT_CENTER: '💼',
-  CULTURE_INSTITUTION: '🎭',
-  SOCIAL_SERVICE_ORGANIZATION: '🤝',
-  CREDITOR: '🏦',
-  HOUSING_AUTHORITY: '🏠',
-  EMPLOYER: '💼',
-}
-
 const LABEL_ALIASES = [
   { key: 'what', labels: ['Что даёт', 'Что дает', 'Что предоставляется'] },
   { key: 'who', labels: ['Кто получает', 'Получатели'] },
@@ -251,8 +226,6 @@ export default function MeasureDetail() {
   const channelHelp = CHANNEL_HELP[measure.channel]
     || 'Уточните порядок оформления по условиям конкретной меры.'
 
-  const channelIcon = CHANNEL_ICON[measure.channel] || '📍'
-
   const apply = () => {
     if (measure.actionUrl) {
       const opened = openLink(measure.actionUrl)
@@ -269,32 +242,15 @@ export default function MeasureDetail() {
     setSheetOpen(true)
   }
 
-  // FIX (ответ на вопрос про уведомления): кнопка «Напомнить о сроке»
-  // сейчас переключает только локальный флаг reminder в этом браузере —
-  // никакого реального сообщения в MAX за 7 дней до дедлайна не
-  // отправляется (это соответствует MVP-ограничению продукта: реальные
-  // напоминания — часть дальнейшего развития, не текущего фронтенда).
-  // Явно сообщаем об этом пользователю в toast, чтобы не создавать
-  // иллюзию работающих push-уведомлений.
-  const toggleReminder = () => {
-    const next = !state.reminder
-    updateSupport(measure.id, { reminder: next })
-    showToast(
-      next
-        ? 'Напоминание сохранено на этом устройстве. Реальная отправка уведомлений появится позже.'
-        : 'Напоминание отключено.'
-    )
-  }
-
   return (
     <div className="page detail">
-      <div className="mcard__top">
+      <div className="mcard__top detail__chips">
         {measure.level && (
           <span className="chip chip--level">{LABELS.level[measure.level] || measure.level}</span>
         )}
 
         {measure.supportType && (
-          <span className="chip">{LABELS.supportType[measure.supportType] || measure.supportType}</span>
+          <span className="chip">{LABELS.supportType[measure.supportType] || measure.supportTypeLabel || measure.supportType}</span>
         )}
 
         <span className="chip chip--blue">
@@ -355,7 +311,7 @@ export default function MeasureDetail() {
 
       <DetailBlock title="Куда обращаться">
         <div className="route-card">
-          <div className="route-card__icon" aria-hidden="true">{channelIcon}</div>
+          <div className="route-card__icon">↗</div>
           <div>
             <strong>{channelLabel}</strong>
             <span>{whereItems.length > 0 ? whereItems.join(' · ') : channelHelp}</span>
@@ -419,7 +375,7 @@ export default function MeasureDetail() {
         <button
           className="btn btn--ghost btn--sm"
           type="button"
-          onClick={toggleReminder}
+          onClick={() => updateSupport(measure.id, { reminder: !state.reminder })}
         >
           {state.reminder ? 'Напоминание включено' : 'Напомнить о сроке'}
         </button>
@@ -427,9 +383,6 @@ export default function MeasureDetail() {
 
       <p className="disclaimer">
         Окончательное решение о предоставлении меры принимает уполномоченный орган.
-        Zабота не является государственным сервисом и не гарантирует назначение меры —
-        подбор носит справочный характер, а условия следует проверить по первоисточнику
-        перед обращением.
       </p>
 
       <div className="actionbar">

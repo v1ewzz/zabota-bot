@@ -120,6 +120,14 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    public List<UserResponse> getAll() {
+        return userRepository.findAll()
+                .stream()
+                .map(userMapper::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public UserProfileResponse getProfile(UUID id) {
         User user = getUser(id);
 

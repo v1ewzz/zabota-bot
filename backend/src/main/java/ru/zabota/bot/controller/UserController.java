@@ -21,6 +21,7 @@ import ru.zabota.bot.dto.user.UserRequest;
 import ru.zabota.bot.dto.user.UserResponse;
 import ru.zabota.bot.service.UserService;
 
+import java.util.List;
 import java.util.UUID;
 
 /*
@@ -74,6 +75,21 @@ public class UserController {
             @Valid @RequestBody UserRequest request
     ) {
         return userService.create(request);
+    }
+
+    @GetMapping
+    @Operation(
+            summary = "Получить всех пользователей",
+            description = "Возвращает список всех пользователей"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Список пользователей успешно получен"
+            )
+    })
+    public List<UserResponse> getAll() {
+        return userService.getAll();
     }
 
     @GetMapping("/{id}")
@@ -131,6 +147,20 @@ public class UserController {
             summary = "Обновить анкету и повторить подбор",
             description = "Полностью сохраняет новую анкету и сразу пересчитывает персональные меры поддержки"
     )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Анкета обновлена, подбор пересчитан"
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Некорректные данные запроса"
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Пользователь, регион, муниципалитет или значение справочника не найдено"
+            )
+    })
     public UserProfileResponse updateProfileAndRematch(
             @Parameter(description = "Идентификатор пользователя", required = true)
             @PathVariable UUID id,

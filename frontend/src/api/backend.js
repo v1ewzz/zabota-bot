@@ -329,3 +329,19 @@ export async function requestMfc(payload) {
     ...response,
   }
 }
+
+export async function requestPdfSummary(userId, payload) {
+  if (!userId) {
+    throw new Error('Профиль ещё не сохранён на сервере. Пройдите анкету заново.')
+  }
+
+  const response = await apiFetch(`/users/${userId}/pdf-summary`, {
+    method: 'POST',
+    body: JSON.stringify(payload || {}),
+  })
+
+  return {
+    ok: true,
+    ...response,
+  }
+}

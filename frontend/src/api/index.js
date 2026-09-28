@@ -21,4 +21,8 @@ export default {
     if (USE_MOCK) return mock.requestMfc(payload)
     return backend.requestMfc(payload)
   },
+  requestPdfSummary: async (userId, payload) => {
+    if (USE_MOCK) return mock.requestPdfSummary(userId, payload)
+    return backend.requestPdfSummary(userId, payload)
+  },
 }

@@ -17,9 +17,20 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # FIX: restart для локальной демонстрации через туннель (ngrok/cloudflared) —
+    # если контейнер упадёт во время показа, он поднимется сам, а не оставит
+    # туннель указывающим в пустоту.
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   db:
     image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_DB: zabota
       POSTGRES_USER: ${DB_USERNAME}

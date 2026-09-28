@@ -13,3 +13,9 @@ export async function requestMfc(payload) {
   console.info('[mock] MFC action stored locally:', payload)
   return { ok: true, requestId: `demo-${Date.now()}` }
 }
+
+export async function requestPdfSummary(userId, payload) {
+  await delay(350)
+  console.info('[mock] PDF summary requested for chat delivery:', userId, payload)
+  return { ok: true, requestId: `demo-pdf-${Date.now()}` }
+}

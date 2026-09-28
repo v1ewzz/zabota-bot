@@ -38,10 +38,15 @@ export default function Layout({ children }) {
 
   const isHome = pathname === '/'
   const isAccount = pathname === '/account'
+  // FIX: у /survey есть штатная кнопка "Назад" внизу (Survey.jsx), которая листает
+  // шаги анкеты назад. Верхняя стрелка в хедере на /survey служит выходом в профиль
+  // (/account). Системную MAX-кнопку "назад" на /survey прячем, чтобы не было двух
+  // конфликтующих выходов.
+  const isSurvey = pathname === '/survey'
   const title = TITLES[pathname] || 'Мера поддержки'
   const backTarget = pathname.startsWith('/measure/')
     ? '/results'
-    : pathname === '/print' || pathname === '/questionnaire'
+    : pathname === '/print' || pathname === '/questionnaire' || isSurvey
       ? '/account'
       : '/'
   const showBottomNav = Boolean(profile?.firstName && profile?.lastName)
@@ -54,7 +59,7 @@ export default function Layout({ children }) {
   }, [pathname])
 
   useEffect(() => {
-    if (!isMax() || isHome || isAccount) {
+    if (!isMax() || isHome || isAccount || isSurvey) {
       hideBackButton()
       return undefined
     }
@@ -62,7 +67,7 @@ export default function Layout({ children }) {
     const onBack = () => navigate(backTarget)
     showBackButton(onBack)
     return () => hideBackButton(onBack)
-  }, [pathname, backTarget, isHome, isAccount, navigate])
+  }, [pathname, backTarget, isHome, isAccount, isSurvey, navigate])
 
   return (
     <div className={`app${showBottomNav ? ' app--with-nav' : ''}`}>

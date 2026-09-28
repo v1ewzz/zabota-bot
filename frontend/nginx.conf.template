@@ -15,11 +15,17 @@ http {
 
         server_tokens off;
 
+        # nginx иначе собирает абсолютный Location из заголовка Host и теряет
+        # порт — с /swagger-ui.html уходило бы на http://localhost/... вместо
+        # :8080. С относительным Location редирект работает на любом порту,
+        # в т.ч. через туннель.
+        absolute_redirect off;
+
         add_header X-Content-Type-Options "nosniff" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
         location /api/ {
-            proxy_pass ${API_UPSTREAM}/api/;
+            proxy_pass http://127.0.0.1:8080/api/;
             proxy_http_version 1.1;
 
             proxy_set_header Host $host;
@@ -35,6 +41,43 @@ http {
             try_files $uri =404;
             expires 1y;
             add_header Cache-Control "public, immutable";
+        }
+
+        # FIX: index.html нельзя кэшировать — иначе вебвью (VK/MAX) подтягивает
+        # старый index со старыми хэшами ассетов и показывает устаревшую сборку
+        # (белый фон hero, старые стили). Хэшированные ассеты из /assets/
+        # кэшируются на год (immutable), а переход версии меняет их URL.
+        location = /index.html {
+            add_header Cache-Control "no-cache, must-revalidate";
+            try_files /index.html =404;
+        }
+
+        # FIX: проксирование Swagger UI / OpenAPI на backend через тот же
+        # домен, что и фронтенд. Раньше location /api/ был единственным
+        # проксируемым путём, поэтому /swagger-ui.html и /v3/api-docs
+        # попадали в location / и отдавали index.html фронтенда вместо
+        # документации API.
+        location /swagger-ui/ {
+            proxy_pass http://127.0.0.1:8080/swagger-ui/;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+        }
+
+        # 302, а не proxy_pass: страница Swagger UI подключает CSS/JS
+        # относительными ссылками (./swagger-ui.css). На /swagger-ui.html они
+        # резолвятся в /swagger-ui.css, который не попадает в
+        # location /swagger-ui/ и проваливается в location / → SPA-шеллку
+        # фронтенда, из-за чего UI остаётся пустым. Редирект переносит
+        # браузер в /swagger-ui/, где относительные ссылки попадают в
+        # location /swagger-ui/ и отдаются backend'ом как надо.
+        location = /swagger-ui.html {
+            return 302 /swagger-ui/index.html;
+        }
+
+        location /v3/api-docs {
+            proxy_pass http://127.0.0.1:8080/v3/api-docs;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
         }
 
         location / {

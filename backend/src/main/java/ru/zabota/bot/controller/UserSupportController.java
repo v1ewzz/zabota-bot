@@ -65,6 +65,10 @@ public class UserSupportController {
             summary = "Получить меры пользователя",
             description = "Возвращает сохранённые персональные меры поддержки"
     )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Список мер получен"),
+            @ApiResponse(responseCode = "404", description = "Пользователь не найден")
+    })
     public List<UserSupportResponse> getAll(
             @Parameter(description = "Идентификатор пользователя", required = true)
             @PathVariable UUID userId
@@ -77,6 +81,10 @@ public class UserSupportController {
             summary = "Получить персональную меру",
             description = "Возвращает одну меру из личного кабинета"
     )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Мера получена"),
+            @ApiResponse(responseCode = "404", description = "Персональная мера не найдена")
+    })
     public UserSupportResponse getById(
             @PathVariable UUID userId,
             @PathVariable UUID userSupportId
@@ -92,6 +100,11 @@ public class UserSupportController {
             summary = "Изменить персональную меру",
             description = "Изменяет статус оформления, признак выбора и заметку"
     )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Мера обновлена"),
+            @ApiResponse(responseCode = "400", description = "Некорректные данные запроса"),
+            @ApiResponse(responseCode = "404", description = "Персональная мера или статус не найдены")
+    })
     public UserSupportResponse update(
             @PathVariable UUID userId,
             @PathVariable UUID userSupportId,

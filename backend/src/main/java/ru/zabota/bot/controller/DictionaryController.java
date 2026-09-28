@@ -74,6 +74,10 @@ public class DictionaryController {
             summary = "Получить активные значения справочника по коду",
             description = "Возвращает активные значения справочника по машинному коду"
     )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Значения справочника получены"),
+            @ApiResponse(responseCode = "404", description = "Справочник с указанным кодом не найден")
+    })
     public List<DictionaryValueResponse> getDictionaryValuesByCode(
             @PathVariable String code
     ) {

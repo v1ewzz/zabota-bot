@@ -18,6 +18,17 @@ import {
   plural,
 } from '../utils'
 
+const EDUCATION_LABELS = {
+  PRESCHOOL: 'Детский сад',
+  SCHOOL: 'Школа',
+  COLLEGE: 'Колледж',
+  SPO: 'Колледж / СПО',
+  UNIVERSITY: 'Вуз',
+  BACHELOR: 'Бакалавриат',
+  SPECIALIST: 'Специалитет',
+  NONE: 'Отсутствует',
+}
+
 const STATUSES = [
   'NOT_APPLIED',
   'SUBMITTED',
@@ -392,7 +403,9 @@ export default function Account() {
 
                             <div className="pchild__meta">
                               {
-                                child.educationType
+                                EDUCATION_LABELS[child.educationType]
+                                || EDUCATION_LABELS[child.educationLevel]
+                                || child.educationType
                                 || child.educationLevel
                                 || 'Обучение не указано'
                               }
