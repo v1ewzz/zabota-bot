@@ -26,12 +26,14 @@ export default function Results() {
   useEffect(() => {
     if (!stale || !profile) return undefined
 
+    const controller = new AbortController()
     let active = true
     setLoading(true)
     setError(null)
 
-    runMatch(profile)
+    runMatch(profile, { signal: controller.signal })
       .catch((matchError) => {
+        if (matchError?.name === 'AbortError') return
         if (active) setError(matchError.message || 'Не удалось выполнить подбор.')
       })
       .finally(() => {
@@ -40,6 +42,7 @@ export default function Results() {
 
     return () => {
       active = false
+      controller.abort()
     }
   }, [stale, profile, runMatch])
 

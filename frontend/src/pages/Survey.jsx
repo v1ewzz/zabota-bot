@@ -57,8 +57,12 @@ const CHILD_EDUCATION_TYPES = [
   { code: 'NONE', label: 'Учреждение не указано' },
 ]
 
+const CHILD_MAX_AGE = 24
+
 function childMinBirthDate() {
-  return '1900-01-01'
+  const date = new Date()
+  date.setFullYear(date.getFullYear() - CHILD_MAX_AGE)
+  return todayStr(date)
 }
 
 function validChildBirthDate(value) {
@@ -129,6 +133,15 @@ function withAvailability(options, kind) {
   return options.filter((option) => isQuestionnaireOptionConfigured(kind, option.code))
 }
 
+function hasEducationOrganization(child) {
+  return Boolean(child.educationType && child.educationType !== 'NONE')
+}
+
+function firstConfiguredEducationType() {
+  const codes = ['SCHOOL', 'COLLEGE', 'UNIVERSITY', 'PRESCHOOL']
+  return codes.find((code) => hasBackendId('educationLevel', code)) || codes[0]
+}
+
 export default function Survey() {
   const { profile, saveProfile, runMatch, showToast } = useApp()
   const nav = useNavigate()
@@ -154,13 +167,15 @@ export default function Survey() {
     []
   )
   const educationOptions = useMemo(() => withAvailability(DICT.EDUCATION_LEVEL, 'educationLevel'), [])
-  const childEducationTypeOptions = useMemo(() => CHILD_EDUCATION_TYPES.map((option) => ({
-    ...option,
-    disabled: option.code !== 'SCHOOL' && option.code !== 'NONE' && !hasBackendId('educationLevel', option.code),
-    disabledHint: option.code !== 'SCHOOL' && option.code !== 'NONE' && !hasBackendId('educationLevel', option.code)
-      ? 'Этот вариант пока не подключён к справочнику подбора.'
-      : '',
-  })), [])
+  const childEducationTypeOptions = useMemo(() => CHILD_EDUCATION_TYPES
+    .filter((option) => option.code !== 'NONE')
+    .map((option) => ({
+      ...option,
+      disabled: option.code !== 'SCHOOL' && !hasBackendId('educationLevel', option.code),
+      disabledHint: option.code !== 'SCHOOL' && !hasBackendId('educationLevel', option.code)
+        ? 'Этот вариант пока не подключён к справочнику подбора.'
+        : '',
+    })), [])
   const legalIssueOptions = useMemo(() => DICT.LEGAL_ISSUE_CATEGORY || [], [])
   const parentRelationOptions = useMemo(
     () => familyRelationOptions.filter((option) => option.code === 'MOTHER' || option.code === 'FATHER'),
@@ -239,7 +254,7 @@ export default function Survey() {
       return
     }
 
-    nav('/')
+    nav('/account')
   }
 
   const finish = async () => {
@@ -447,35 +462,55 @@ export default function Survey() {
                     })}
                   />
                   {child.birthDate && !validChildBirthDate(child.birthDate) && (
-                    <span className="field__error">Укажите реальную дату рождения ребёнка в допустимом диапазоне.</span>
+                    <span className="field__error">Возраст ребёнка должен быть в диапазоне 0–{CHILD_MAX_AGE} лет.</span>
+                  )}
+                  {!child.birthDate && (
+                    <span className="field__hint">Возраст 0–{CHILD_MAX_AGE} лет — считается автоматически из даты рождения.</span>
                   )}
                 </label>
 
-                <Select
-                  label="Образовательное учреждение"
-                  value={child.educationType || child.educationLevel}
-                  options={childEducationTypeOptions}
+                <ToggleRow
+                  label="Есть образовательная организация"
+                  hint="Включите, чтобы выбрать тип организации. Если её нет — оставьте выключенным."
+                  checked={hasEducationOrganization(child)}
                   onChange={(value) => updateChild(child.id, {
-                    educationType: value,
-                    educationLevel: value === 'NONE'
-                      ? child.educationLevel
-                      : (hasBackendId('educationLevel', value) ? value : child.educationLevel),
-                    grade: value === 'SCHOOL'
+                    educationType: value
+                      ? (hasBackendId('educationLevel', 'SCHOOL') ? 'SCHOOL' : firstConfiguredEducationType())
+                      : 'NONE',
+                    educationLevel: value
+                      ? (hasBackendId('educationLevel', 'SCHOOL') ? 'SCHOOL' : child.educationLevel)
+                      : child.educationLevel,
+                    grade: value
                       ? (child.grade ?? Math.max(1, (calcAge(child.birthDate) || 7) - 6))
                       : null,
                   })}
-                  placeholder="Выберите…"
                 />
 
-                {child.educationType === 'NONE' && (
-                  <div className="banner banner--info">Учреждение не привязывается к анкете. Такой ребёнок не используется в правилах подбора, связанных с образовательной организацией.</div>
+                {hasEducationOrganization(child) && (
+                  <Select
+                    label="Тип образовательной организации"
+                    value={child.educationType || child.educationLevel}
+                    options={childEducationTypeOptions}
+                    onChange={(value) => updateChild(child.id, {
+                      educationType: value,
+                      educationLevel: hasBackendId('educationLevel', value) ? value : child.educationLevel,
+                      grade: value === 'SCHOOL'
+                        ? (child.grade ?? Math.max(1, (calcAge(child.birthDate) || 7) - 6))
+                        : null,
+                    })}
+                    placeholder="Выберите…"
+                  />
                 )}
 
-                {child.educationType && child.educationType !== 'NONE' && !hasBackendId('educationLevel', child.educationType) && (
-                  <div className="banner banner--warn">Этот вариант уже доступен в интерфейсе, но пока не подключён к backend-справочнику и не влияет на расчёт мер.</div>
+                {!hasEducationOrganization(child) && (
+                  <div className="banner banner--info">Образовательная организация не указана: ребёнок не учитывается в правилах подбора, связанных с обучением.</div>
                 )}
 
-                {child.educationLevel === 'SCHOOL' && (
+                {hasEducationOrganization(child) && child.educationType && !hasBackendId('educationLevel', child.educationType) && (
+                  <div className="banner banner--warn">Этот вариант доступен в интерфейсе, но пока не подключён к backend-справочнику и не влияет на расчёт мер.</div>
+                )}
+
+                {hasEducationOrganization(child) && child.educationLevel === 'SCHOOL' && (
                   <Select
                     label="Класс"
                     value={child.grade}
@@ -487,7 +522,7 @@ export default function Survey() {
                   />
                 )}
 
-                {(child.educationLevel === 'COLLEGE' || child.educationLevel === 'UNIVERSITY') && (
+                {hasEducationOrganization(child) && (child.educationLevel === 'COLLEGE' || child.educationLevel === 'UNIVERSITY') && (
                   <ToggleRow
                     label="Очная форма обучения"
                     checked={child.fullTime}

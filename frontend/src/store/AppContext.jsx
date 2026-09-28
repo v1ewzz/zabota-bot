@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import api from '../api'
 import { haptic } from '../bridge/max'
 
@@ -56,6 +56,11 @@ export function AppProvider({ children }) {
   const [support, setSupport] = useState(() => load('support', {}))
   const [toast, setToast] = useState(null)
 
+  const isMountedRef = useRef(true)
+  useEffect(() => () => { isMountedRef.current = false }, [])
+
+  const requestSeqRef = useRef(new Map())
+
   useEffect(() => persist('consent', consent), [consent])
   useEffect(() => persist('profile', profile), [profile])
   useEffect(() => persist('results', results), [results])
@@ -68,6 +73,7 @@ export function AppProvider({ children }) {
   }, [toast])
 
   const showToast = useCallback((text) => {
+    if (!isMountedRef.current) return
     setToast({ text, at: Date.now() })
   }, [])
 
@@ -96,8 +102,10 @@ export function AppProvider({ children }) {
     })
   }, [])
 
-  const runMatch = useCallback(async (draft) => {
-    const response = await api.runMatch(draft)
+  const runMatch = useCallback(async (draft, options = {}) => {
+    const response = await api.runMatch(draft, options)
+
+    if (!isMountedRef.current) return response
 
     if (response.profile) {
       setProfile(response.profile)
@@ -158,6 +166,10 @@ export function AppProvider({ children }) {
       return
     }
 
+    const seqMap = requestSeqRef.current
+    const mySeq = (seqMap.get(id) || 0) + 1
+    seqMap.set(id, mySeq)
+
     try {
       await api.updateUserSupport(
         profile.backendUserId,
@@ -166,7 +178,9 @@ export function AppProvider({ children }) {
       )
     } catch (error) {
       console.error(error)
-      showToast(error.message || 'Не удалось сохранить изменение меры.')
+      if (seqMap.get(id) === mySeq) {
+        showToast(error.message || 'Не удалось сохранить изменение меры.')
+      }
     }
   }, [profile?.backendUserId, results, showToast])
 
@@ -178,6 +192,7 @@ export function AppProvider({ children }) {
       localStorage.removeItem(LEGACY_KEY(key))
     })
 
+    requestSeqRef.current.clear()
     setConsentState(false)
     setProfile(null)
     setResults(null)
