@@ -127,3 +127,7 @@ VITE_USE_MOCK=true
 ```
 
 Основной режим проекта — `VITE_USE_MOCK=false`.
+
+## Amvera deploy
+
+Автодеплой на Amvera выполняется по ветке `feat/debug-front`.
