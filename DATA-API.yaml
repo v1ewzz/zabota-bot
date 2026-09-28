@@ -1,0 +1,548 @@
+# ==============================================================================
+# DATA-API.yaml — описание проверяемой функциональности API
+# Решение: Zabota Bot — подбор мер поддержки для семей участников СВО
+# ------------------------------------------------------------------------------
+# Структура файла (по ТЗ, п.5):
+#   1. версия конфигурации файла
+#   2. наименование решения / идентификатор команды
+#   3. базовый адрес API
+#   4. перечень обязательных проверок
+#   5. HTTP-метод и относительный путь
+#   6. параметры запроса (path / query / headers / тело)
+#   7. роль пользователя
+#   8. ожидаемые статус-коды
+#   9. ожидаемый формат ответа
+#
+# Файл самодостаточен: для переноса на другой стенд достаточно заменить
+# значение BASE_URL (единственный параметр в шапке).
+# ==============================================================================
+
+config_version: "1.0"
+
+# ---- п.2: наименование решения / идентификатор команды ----------------------
+solution:
+  name: "Zabota Bot"
+  description: "Сервис подбора мер социальной поддержки для семей участников СВО: справочники, анкета семьи, алгоритмический подбор мер по критериям, персональный статус оформления, выгрузка сводки."
+  source: "https://github.com/zabota-2026/zabota-bot"
+  team_id: "zabota-2026"
+
+# ---- п.3: базовый адрес API -------------------------------------------------
+# Один плейсхолдер на файл: заменяя эту строку, можно переключить все проверки
+# на другой стенд (например, http://localhost:8080).
+base_url: "${BASE_URL:https://piska-bobra.cloudpub.ru}"
+
+# ---- п.4–п.9: перечень обязательных проверок ---------------------------------
+# Каждая проверка определяет метод, путь, параметры, роль и ожидания.
+# Роль anonymous во всех проверках: авторизация в сервисе не реализована
+# (подробнее — SUBMISSION.md, п.3).
+checks:
+
+  # ==========================================================================
+  # A. Справочные данные (источник UUID для подстановки в сценарий C)
+  # ==========================================================================
+
+  - id: A-01-REGIONS
+    title: "Список регионов"
+    method: GET
+    path: /api/regions
+    params: []
+    role: anonymous
+    expected:
+      status: 200
+      content_type: application/json
+      response:
+        type: array
+        example: |
+          [{"regionId":"2cfa3160-48ad-48e8-9a71-7d7ca7dbdca0",
+            "name":"Республика Татарстан","code":"TATARSTAN",
+            "createdAt":"2026-09-27T08:17:14.473946"}]
+
+  - id: A-02-MUNICIPALITIES
+    title: "Муниципалитеты по региону"
+    method: GET
+    path: /api/municipalities/by-region/{regionId}
+    params:
+      - in: path
+        name: regionId
+        type: uuid
+        note: "Регион из ответа A-01 (дефолт: 2cfa3160-48ad-48e8-9a71-7d7ca7dbdca0 — Республика Татарстан)"
+    role: anonymous
+    expected:
+      status: 200
+      content_type: application/json
+      response:
+        type: array
+        example: |
+          [{"municipalityId":"5b7e9c2a-3a34-4d8f-9c5f-2e7a1b6d4f20",
+            "name":"Казань","regionId":"2cfa3160-48ad-48e8-9a71-7d7ca7dbdca0",
+            "regionName":"Республика Татарстан","district":null,
+            "typeCode":"CITY","typeName":"Город"}]
+
+  - id: A-03-DICTIONARIES
+    title: "Справочники (типы и значения)"
+    method: GET
+    path: /api/dictionaries
+    params: []
+    role: anonymous
+    expected:
+      status: 200
+      content_type: application/json
+      response:
+        type: array
+        note: "Каждый элемент — тип справочника с вложенным списком values; contains codes FAMILY_RELATION, MILITARY_STATUS, EDUCATION_LEVEL, USER_SUPPORT_STATUS"
+
+  - id: A-04-EDUCATION-LEVELS
+    title: "Значения справочника EDUCATION_LEVEL"
+    method: GET
+    path: /api/dictionaries/by-code/EDUCATION_LEVEL/values
+    params: []
+    role: anonymous
+    expected:
+      status: 200
+      content_type: application/json
+      response:
+        type: array
+        example: |
+          [{"dictionaryValueId":"3fd49a30-e781-446f-a85e-619fed1026f8","code":"SCHOOL","label":"Школа","sortOrder":1}]
+      err_status_400: "несуществующий код справочника"
+
+  - id: A-05-SUPPORT-MEASURES
+    title: "Каталог мер поддержки"
+    method: GET
+    path: /api/support-measures
+    params: []
+    role: anonymous
+    expected:
+      status: 200
+      content_type: application/json
+      response:
+        type: array
+        note: "Элементы с полями supportMeasureId, name, description, applicationChannel, documents, requirements, legalGround"
+
+  - id: A-06-NPAS
+    title: "Каталог НПА (законодательная база мер)"
+    method: GET
+    path: /api/npas
+    params: []
+    role: anonymous
+    expected:
+      status: 200
+      content_type: application/json
+      response:
+        type: array
+        note: "16 записей; поля npaId, name, number, adoptionDate, validFrom, validTo, officialUrl, npaTypeName, levelName, statusName"
+
+  - id: A-07-SUPPORT-RULES
+    title: "Правила привязки мер к критериям"
+    method: GET
+    path: /api/support-rules
+    params: []
+    role: anonymous
+    expected:
+      status: 200
+      content_type: application/json
+      response:
+        type: array
+        note: "Правила алгоритма подбора: критерии eligibilityCriteria и привязанная мера supportMeasureId"
+
+  # ==========================================================================
+  # B. Полный CRUD административной записи (на примере региона)
+  # ==========================================================================
+
+  - id: B-01-REGION-CREATE
+    title: "Создание региона"
+    method: POST
+    path: /api/regions
+    params:
+      - in: body
+        name: RegionRequest
+        content_type: application/json
+        schema: '{ "name": "Тестовая область", "code": "TEST_REGION_001" }'
+    role: anonymous
+    expected:
+      status: 201
+      content_type: application/json
+      response:
+        type: object
+        note: "Тело — созданный регион с полем regionId; из ответа запоминаем ${REGION_ID} и ${REGION_CODE} для следующих шагов"
+
+  - id: B-02-REGION-GET
+    title: "Чтение созданного региона"
+    method: GET
+    path: /api/regions/{regionId}
+    params:
+      - in: path
+        name: regionId
+        type: uuid
+        note: "Из ответа B-01"
+    role: anonymous
+    expected:
+      status: 200
+      content_type: application/json
+      response:
+        type: object
+        note: "Поля: regionId, name, code, createdAt"
+
+  - id: B-03-REGION-UPDATE
+    title: "Обновление региона"
+    method: PUT
+    path: /api/regions/{regionId}
+    params:
+      - in: path
+        name: regionId
+        type: uuid
+      - in: body
+        name: RegionRequest
+        content_type: application/json
+        schema: '{ "name": "Тестовая область (обн.)", "code": "TEST_REGION_001" }'
+    role: anonymous
+    expected:
+      status: 200
+      content_type: application/json
+      response:
+        type: object
+        note: "Обновлённый объект региона"
+
+  - id: B-04-REGION-DELETE
+    title: "Удаление региона (очистка)"
+    method: DELETE
+    path: /api/regions/{regionId}
+    params:
+      - in: path
+        name: regionId
+        type: uuid
+    role: anonymous
+    expected:
+      status: 204
+      content_type: none
+      response:
+        note: "Пустое тело"
+
+  # ==========================================================================
+  # C. Ядро: пользовательский сценарий «анкета → подбор → оформление»
+  # ==========================================================================
+
+  - id: C-01-USER-CREATE
+    title: "Создание пользователя (анкета семьи)"
+    method: POST
+    path: /api/users
+    params:
+      - in: body
+        name: UserCreateRequest
+        content_type: application/json
+        file: test-data/payloads/user-create-full.json
+        note: "Полная анкета с ребёнком; обязательные поля — firstName, lastName, regionId, municipalityId"
+    role: anonymous
+    expected:
+      status: 201
+      content_type: application/json
+      response:
+        type: object
+        note: "Тело — анкета пользователя с полем userId (запоминаем ${USER_ID}); поля familyRelationCode, militaryStatusCode, children[]"
+
+  - id: C-02-USER-LIST
+    title: "Список пользователей (созданный присутствует)"
+    method: GET
+    path: /api/users
+    params: []
+    role: anonymous
+    expected:
+      status: 200
+      content_type: application/json
+      response:
+        type: array
+        note: "Список анкет; содержит элемент с id = ${USER_ID} из C-01"
+
+  - id: C-03-USER-GET
+    title: "Чтение анкеты пользователя"
+    method: GET
+    path: /api/users/{userId}
+    params:
+      - in: path
+        name: userId
+        type: uuid
+        note: "Из C-01"
+    role: anonymous
+    expected:
+      status: 200
+      content_type: application/json
+      response:
+        type: object
+        note: "Поля: userId, firstName, lastName, birthDate, regionName, municipalityName, familyRelationCode, militaryStatusCode, children[..., educationLevelName]"
+
+  - id: C-04-USER-PROFILE-UPDATE
+    title: "Редактирование анкеты (профиля)"
+    method: PUT
+    path: /api/users/{userId}/profile
+    params:
+      - in: path
+        name: userId
+        type: uuid
+      - in: body
+        name: UserUpdateRequest
+        content_type: application/json
+        note: "Частичные данные: например { 'housingProblem': true }"
+    role: anonymous
+    expected:
+      status: 200
+      content_type: application/json
+      err_status_404: "несуществующий userId"
+      response:
+        type: object
+        note: "Обновлённая анкета"
+
+  - id: C-05-REMATCH
+    title: "Перезапуск алгоритма подбора мер для пользователя"
+    method: POST
+    path: /api/users/{userId}/supports/search
+    params:
+      - in: path
+        name: userId
+        type: uuid
+    role: anonymous
+    expected:
+      status: 200
+      content_type: application/json
+      response:
+        type: object
+        note: "Результат пересчёта: содержит userId и список matches с мерами (подробный ответ ~12 КБ) -> позволяет получить сформированные записи user_support"
+
+  - id: C-06-USER-SUPPORTS-LIST
+    title: "Персональные результаты подбора"
+    method: GET
+    path: /api/users/{userId}/supports
+    params:
+      - in: path
+        name: userId
+        type: uuid
+    role: anonymous
+    expected:
+      status: 200
+      content_type: application/json
+      err_status_404: "несуществующий userId"
+      response:
+        type: array
+        note: ">= 1 запись; поля: userSupportId, supportId, statusCode, statusName, selectedForAction, actionUrl, applicationRequired, checkedAt, submittedAt"
+
+  - id: C-07-USER-SUPPORT-GET
+    title: "Детали одной записи подбора"
+    method: GET
+    path: /api/users/{userId}/supports/{userSupportId}
+    params:
+      - in: path
+        name: userId
+        type: uuid
+      - in: path
+        name: userSupportId
+        type: uuid
+        note: "Первая запись из C-06"
+    role: anonymous
+    expected:
+      status: 200
+      content_type: application/json
+      err_status_404: "несуществующий userSupportId"
+      response:
+        type: object
+        note: "Полный объект персональной меры (см. формат C-06)"
+
+  - id: C-08-USER-SUPPORT-PATCH
+    title: "Смена статуса оформления меры"
+    method: PATCH
+    path: /api/users/{userId}/supports/{userSupportId}
+    params:
+      - in: path
+        name: userId
+        type: uuid
+      - in: path
+        name: userSupportId
+        type: uuid
+      - in: body
+        name: UserSupportUpdateRequest
+        content_type: application/json
+        file: test-data/payloads/user-update-status.json
+        note: "statusId = SUBMITTED (7f5fa255-f16b-46eb-861c-2ad3bbd516ad), selectedForAction=true"
+    role: anonymous
+    expected:
+      status: 200
+      content_type: application/json
+      err_status_400: "ни одно поле не передано"
+      err_status_404: "несуществующий userSupportId | userId"
+      response:
+        type: object
+        example: |
+          {"userSupportId":"64a9aa66-5b5b-4824-af6b-1bc97add1357",
+           "supportId":"9a103f0d-7fdf-4670-a855-0faa9b60b2f6",
+           "statusCode":"SUBMITTED","statusName":"Подано",
+           "selectedForAction":true,"note":"...",
+           "submittedAt":"2026-09-28T15:07:28.134364","checkedAt":"2026-09-28T15:07:28.150745"}
+
+  - id: C-09-PDF-SUMMARY
+    title: "Выгрузка сводки мер в PDF (отправка в MAX — бэклог)"
+    method: POST
+    path: /api/users/{userId}/pdf-summary
+    params:
+      - in: path
+        name: userId
+        type: uuid
+    role: anonymous
+    expected:
+      status: 422
+      content_type: application/json
+      note: "Осознанный статус: PDF генерируется, но фактическое отправление сводки в мессенджер MAX ещё в бэклоге (см. SUBMISSION.md, п.4). 422 — понятная машиночитаемая ошибка, сервис жив и отвечает корректным форматом."
+      response:
+        type: object
+        example: |
+          {"timestamp":"2026-09-28T15:07:53.099595155","status":422,
+           "error":"Unprocessable Entity","message":"...",
+           "path":"/api/users/{userId}/pdf-summary","validationErrors":null}
+
+  - id: C-10-USER-DELETE
+    title: "Удаление пользователя (очистка тестовых данных)"
+    method: DELETE
+    path: /api/users/{userId}
+    params:
+      - in: path
+        name: userId
+        type: uuid
+        note: "Допускается удаление после C-08; каскадно подчищает связанные записи подбора"
+    role: anonymous
+    expected:
+      status: 204
+      content_type: none
+      response:
+        note: "Пустое тело"
+
+  # ==========================================================================
+  # D. Контракт и обработка ошибок (негативные проверки)
+  # ==========================================================================
+
+  - id: D-01-NOT-FOUND-PATH
+    title: "Несуществующий путь -> 404"
+    method: GET
+    path: /api/definitely-not-here
+    params: []
+    role: anonymous
+    expected:
+      status: 404
+      content_type: application/json
+      response:
+        type: object
+        example: |
+          {"timestamp":"...","status":404,"error":"Not Found",
+           "message":"Ресурс не найден: /api/definitely-not-here",
+           "path":"/api/definitely-not-here","validationErrors":null}
+
+  - id: D-02-METHOD-NOT-ALLOWED
+    title: "Метод не поддерживается -> 405"
+    method: DELETE
+    path: /api/regions
+    params: []
+    role: anonymous
+    expected:
+      status: 405
+      content_type: application/json
+      response:
+        type: object
+        note: "Формат ErrorResponse как в D-01; message содержит поддерживаемые методы"
+
+  - id: D-03-TYPE-MISMATCH
+    title: "Неверный тип path-параметра -> 400"
+    method: GET
+    path: /api/regions/abc
+    params: []
+    role: anonymous
+    expected:
+      status: 400
+      content_type: application/json
+      response:
+        type: object
+        note: "Параметр regionId ожидает UUID"
+
+  - id: D-04-NOT-FOUND-UUID
+    title: "Несуществующий UUID записи -> 404"
+    method: GET
+    path: /api/regions/{randomUuid}
+    params:
+      - in: path
+        name: randomUuid
+        type: uuid
+        note: "Например 00000000-0000-0000-0000-000000000000"
+    role: anonymous
+    expected:
+      status: 404
+      content_type: application/json
+      response:
+        type: object
+        example: |
+          {"timestamp":"...","status":404,"error":"Not Found",
+           "message":"Регион с id 00000000-0000-0000-0000-000000000000 не найден",
+           "path":"/api/regions/00000000-0000-0000-0000-000000000000","validationErrors":null}
+
+  - id: D-05-UNREADABLE-JSON
+    title: "Некорректное JSON-тело -> 400"
+    method: POST
+    path: /api/regions
+    params:
+      - in: body
+        name: body
+        content_type: application/json
+        schema: "не-JSON текст"
+    role: anonymous
+    expected:
+      status: 400
+      content_type: application/json
+      response:
+        type: object
+        note: "message начинается с 'Некорректное тело запроса: ...'"
+
+  - id: D-06-MEDIA-TYPE
+    title: "Неподдерживаемый Content-Type -> 415"
+    method: POST
+    path: /api/regions
+    params:
+      - in: body
+        name: body
+        content_type: text/plain
+    role: anonymous
+    expected:
+      status: 415
+      content_type: application/json
+      response:
+        type: object
+        note: "message: 'Неподдерживаемый Content-Type: text/plain'"
+
+  - id: D-07-VALIDATION-FAIL
+    title: "Валидация тела -> 400 с полями"
+    method: POST
+    path: /api/users
+    params:
+      - in: body
+        name: UserCreateRequest
+        content_type: application/json
+        schema: "{}"
+    role: anonymous
+    expected:
+      status: 400
+      content_type: application/json
+      response:
+        type: object
+        note: "validationErrors содержит поля: firstName, lastName, regionId, municipalityId"
+
+  - id: D-08-USER-NOT-FOUND
+    title: "Несуществующий userId -> 404"
+    method: GET
+    path: /api/users/{randomUuid}
+    params:
+      - in: path
+        name: randomUuid
+        type: uuid
+    role: anonymous
+    expected:
+      status: 404
+      content_type: application/json
+      response:
+        type: object
+        example: |
+          {"timestamp":"...","status":404,"error":"Not Found",
+           "message":"Пользователь с id ... не найден",
+           "path":"/api/users/...","validationErrors":null}

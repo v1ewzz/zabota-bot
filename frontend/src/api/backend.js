@@ -200,45 +200,68 @@ async function saveUser(profile) {
   }
 }
 
-async function getUserSupports(userId) {
-  const response = await apiFetch(`/users/${userId}/supports`)
+const DETAIL_CONCURRENCY = 4
+
+async function mapWithConcurrency(items, limit, mapper) {
+  const results = new Array(items.length)
+  let cursor = 0
+
+  async function worker() {
+    while (cursor < items.length) {
+      const index = cursor
+      cursor += 1
+      results[index] = await mapper(items[index], index)
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, worker)
+  await Promise.all(workers)
+  return results
+}
+
+async function getUserSupports(userId, options = {}) {
+  const response = await apiFetch(`/users/${userId}/supports`, {
+    signal: options.signal,
+  })
 
   if (!Array.isArray(response)) return []
 
   const items = response.map(normalizeMeasure)
-  const enriched = await Promise.all(
-    items.map(async (item) => {
-      if (!item.id) return item
 
-      try {
-        const detail = await apiFetch(`/support-measures/${item.id}`)
-        return {
-          ...normalizeMeasure(detail),
-          ...item,
-          id: item.id,
-          userSupportId: item.userSupportId,
-          name: item.name || detail?.name || '',
-          description: item.description || detail?.description || '',
-          amount: item.amount ?? normalizeAmount(detail?.amount),
-          frequency: detail?.frequencyCode || item.frequency || null,
-          applicationRequired: item.applicationRequired,
-          channel: detail?.applicationChannelCode || item.channel,
-          channelLabel: detail?.applicationChannelName || item.channelLabel,
-          actionUrl: item.actionUrl || normalizeUrl(detail?.actionUrl),
-          supportType: detail?.supportTypeCode || item.supportType || null,
-          supportTypeLabel: detail?.supportTypeName || item.supportTypeLabel || null,
-          level: detail?.levelCode || item.level || null,
-          levelLabel: detail?.levelName || item.levelLabel || null,
-          recipient: detail?.recipientTypeCode || item.recipient || 'FAMILY',
-          recipientLabel: detail?.recipientTypeName || item.recipientLabel || null,
-          documents: normalizeDocuments(detail?.documents),
-          validTo: detail?.validTo || item.validTo || null,
-        }
-      } catch {
-        return item
+  const enriched = await mapWithConcurrency(items, DETAIL_CONCURRENCY, async (item) => {
+    if (!item.id) return item
+
+    try {
+      const detail = await apiFetch(`/support-measures/${item.id}`, {
+        signal: options.signal,
+      })
+      return {
+        ...normalizeMeasure(detail),
+        ...item,
+        id: item.id,
+        userSupportId: item.userSupportId,
+        name: item.name || detail?.name || '',
+        description: item.description || detail?.description || '',
+        amount: item.amount ?? normalizeAmount(detail?.amount),
+        frequency: detail?.frequencyCode || item.frequency || null,
+        applicationRequired: item.applicationRequired,
+        channel: detail?.applicationChannelCode || item.channel,
+        channelLabel: detail?.applicationChannelName || item.channelLabel,
+        actionUrl: item.actionUrl || normalizeUrl(detail?.actionUrl),
+        supportType: detail?.supportTypeCode || item.supportType || null,
+        supportTypeLabel: detail?.supportTypeName || item.supportTypeLabel || null,
+        level: detail?.levelCode || item.level || null,
+        levelLabel: detail?.levelName || item.levelLabel || null,
+        recipient: detail?.recipientTypeCode || item.recipient || 'FAMILY',
+        recipientLabel: detail?.recipientTypeName || item.recipientLabel || null,
+        documents: normalizeDocuments(detail?.documents),
+        validTo: detail?.validTo || item.validTo || null,
       }
-    })
-  )
+    } catch (error) {
+      if (error?.name === 'AbortError') throw error
+      return item
+    }
+  })
 
   return enriched
 }
@@ -247,15 +270,16 @@ export async function getProfile(userId) {
   return apiFetch(`/users/${userId}/profile`)
 }
 
-export async function runMatch(profile) {
+export async function runMatch(profile, options = {}) {
   const saved = await saveUser(profile)
   const userId = saved.userId
 
   await apiFetch(`/users/${userId}/supports/search`, {
     method: 'POST',
+    signal: options.signal,
   })
 
-  const matched = await getUserSupports(userId)
+  const matched = await getUserSupports(userId, options)
 
   return {
     userId,
@@ -291,4 +315,17 @@ export async function updateUserSupport(userId, userSupportId, patch) {
     method: 'PATCH',
     body: JSON.stringify(request),
   })
+}
+
+export async function requestMfc(payload) {
+  const response = await apiFetch('/mfc/requests', {
+    method: 'POST',
+    body: JSON.stringify(payload || {}),
+  })
+
+  return {
+    ok: true,
+    requestId: response?.requestId ?? response?.id ?? null,
+    ...response,
+  }
 }

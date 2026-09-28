@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useApp } from '../store/AppContext'
 import { LABELS } from '../api/mockData'
@@ -27,86 +27,63 @@ const CHANNEL_LABELS = {
 }
 
 const CHANNEL_HELP = {
-  GOSUSLUGI:
-    'Заявление можно подать через Госуслуги.',
+  GOSUSLUGI: 'Заявление можно подать через Госуслуги.',
+  SFR: 'Обратитесь в Социальный фонд России по указанному порядку оформления.',
+  MFC: 'Обратитесь лично в МФЦ с необходимыми документами.',
+  SCHOOL: 'Обратитесь в школу или детский сад.',
+  EDUCATIONAL_ORGANIZATION: 'Обратитесь в образовательную организацию.',
+  FNS: 'Оформление проводится через налоговый орган или личный кабинет ФНС.',
+  BANK: 'Уточните порядок оформления непосредственно в банке.',
+}
 
-  SFR:
-    'Обратитесь в Социальный фонд России по указанному порядку оформления.',
-
-  MFC:
-    'Обратитесь лично в МФЦ с необходимыми документами.',
-
-  SCHOOL:
-    'Обратитесь в школу или детский сад.',
-
-  EDUCATIONAL_ORGANIZATION:
-    'Обратитесь в образовательную организацию.',
-
-  FNS:
-    'Оформление проводится через налоговый орган или личный кабинет ФНС.',
-
-  BANK:
-    'Уточните порядок оформления непосредственно в банке.',
+// FIX (дизайн, п. «значок у МФЦ»): раньше для любого канала обращения
+// (Госуслуги, МФЦ, банк, школа и т.д.) использовалась одна и та же мелкая
+// стрелка «↗», из-за чего иконка визуально терялась и не несла смысла.
+// Теперь иконка подбирается по типу канала — крупнее и по существу.
+const CHANNEL_ICON = {
+  GOSUSLUGI: '🌐',
+  SFR: '🏛',
+  MFC: '🏢',
+  SCHOOL: '🏫',
+  EDUCATIONAL_ORGANIZATION: '🏫',
+  FNS: '🧾',
+  BANK: '🏦',
+  SOCIAL_PROTECTION: '🛡',
+  MILITARY_UNIT: '🎖',
+  MILITARY_COMMISSARIAT: '🎖',
+  UNIVERSITY: '🎓',
+  EMPLOYMENT_SERVICE: '💼',
+  EMPLOYMENT_CENTER: '💼',
+  CULTURE_INSTITUTION: '🎭',
+  SOCIAL_SERVICE_ORGANIZATION: '🤝',
+  CREDITOR: '🏦',
+  HOUSING_AUTHORITY: '🏠',
+  EMPLOYER: '💼',
 }
 
 const LABEL_ALIASES = [
-  {
-    key: 'what',
-    labels: [
-      'Что даёт',
-      'Что дает',
-      'Что предоставляется',
-    ],
-  },
-
-  {
-    key: 'who',
-    labels: [
-      'Кто получает',
-      'Получатели',
-    ],
-  },
-
+  { key: 'what', labels: ['Что даёт', 'Что дает', 'Что предоставляется'] },
+  { key: 'who', labels: ['Кто получает', 'Получатели'] },
   {
     key: 'criteria',
-    labels: [
-      'Основные критерии для алгоритма',
-      'Критерии из источника',
-      'Условия получения',
-      'Условия',
-    ],
+    labels: ['Основные критерии для алгоритма', 'Критерии из источника', 'Условия получения', 'Условия'],
   },
-
-  {
-    key: 'amountText',
-    labels: [
-      'Размер / вид поддержки',
-      'Размер',
-      'Размер выплаты',
-    ],
-  },
-
-  {
-    key: 'application',
-    labels: [
-      'Заявление',
-      'Подача заявления',
-    ],
-  },
-
-  {
-    key: 'where',
-    labels: [
-      'Куда обращаться',
-      'Куда обратиться',
-    ],
-  },
+  { key: 'amountText', labels: ['Размер / вид поддержки', 'Размер', 'Размер выплаты'] },
+  { key: 'application', labels: ['Заявление', 'Подача заявления'] },
+  { key: 'where', labels: ['Куда обращаться', 'Куда обратиться'] },
 ]
 
+const LABEL_PATTERN_RE = new RegExp(
+  `(${LABEL_ALIASES
+    .flatMap((group) => group.labels)
+    .sort((a, b) => b.length - a.length)
+    .map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|')})\\s*:`,
+  'gi'
+)
+
 function normalizeText(value) {
-  if (typeof value !== 'string') {
-    return ''
-  }
+  if (typeof value !== 'string') return ''
 
   return value
     .replace(/\$z\$/g, '')
@@ -116,19 +93,11 @@ function normalizeText(value) {
 }
 
 function findLabelInfo(label) {
-  const normalized =
-    label
-      .trim()
-      .toLowerCase()
+  const normalized = label.trim().toLowerCase()
 
   for (const group of LABEL_ALIASES) {
     for (const alias of group.labels) {
-      if (
-        alias.toLowerCase()
-        === normalized
-      ) {
-        return group
-      }
+      if (alias.toLowerCase() === normalized) return group
     }
   }
 
@@ -136,8 +105,7 @@ function findLabelInfo(label) {
 }
 
 function parseDescription(value) {
-  const text =
-    normalizeText(value)
+  const text = normalizeText(value)
 
   const result = {
     what: '',
@@ -148,106 +116,45 @@ function parseDescription(value) {
     where: '',
   }
 
-  if (!text) {
-    return result
-  }
+  if (!text) return result
 
-  const labelPattern =
-    LABEL_ALIASES
-      .flatMap(
-        (group) => group.labels
-      )
-      .sort(
-        (a, b) =>
-          b.length - a.length
-      )
-      .map(
-        (label) =>
-          label.replace(
-            /[.*+?^${}()|[\]\\]/g,
-            '\\$&'
-          )
-      )
-      .join('|')
-
-  const pattern =
-    new RegExp(
-      `(${labelPattern})\\s*:`,
-      'gi'
-    )
-
-  const matches = [
-    ...text.matchAll(pattern),
-  ]
+  const matches = [...text.matchAll(LABEL_PATTERN_RE)]
 
   if (matches.length === 0) {
     result.what = text
     return result
   }
 
-  const textBeforeFirstLabel =
-    text
-      .slice(
-        0,
-        matches[0].index
-      )
-      .trim()
-      .replace(
-        /^[,;.\s]+|[,;.\s]+$/g,
-        ''
-      )
+  const textBeforeFirstLabel = text
+    .slice(0, matches[0].index)
+    .trim()
+    .replace(/^[,;.\s]+|[,;.\s]+$/g, '')
 
   if (textBeforeFirstLabel) {
-    result.what =
-      textBeforeFirstLabel
+    result.what = textBeforeFirstLabel
   }
 
-  for (
-    let index = 0;
-    index < matches.length;
-    index += 1
-  ) {
-    const match =
-      matches[index]
+  for (let index = 0; index < matches.length; index += 1) {
+    const match = matches[index]
+    const label = match[1]
+    const group = findLabelInfo(label)
 
-    const label =
-      match[1]
+    if (!group) continue
 
-    const group =
-      findLabelInfo(label)
+    const start = match.index + match[0].length
+    const end = index + 1 < matches.length ? matches[index + 1].index : text.length
 
-    if (!group) {
-      continue
-    }
+    const content = text
+      .slice(start, end)
+      .replace(/^[,;.\s]+|[,;.\s]+$/g, '')
+      .trim()
 
-    const start =
-      match.index
-      + match[0].length
-
-    const end =
-      index + 1 < matches.length
-        ? matches[index + 1].index
-        : text.length
-
-    const content =
-      text
-        .slice(start, end)
-        .replace(
-          /^[,;.\s]+|[,;.\s]+$/g,
-          ''
-        )
-        .trim()
-
-    if (!content) {
-      continue
-    }
+    if (!content) continue
 
     if (result[group.key]) {
-      result[group.key] =
-        `${result[group.key]}; ${content}`
+      result[group.key] = `${result[group.key]}; ${content}`
     } else {
-      result[group.key] =
-        content
+      result[group.key] = content
     }
   }
 
@@ -255,181 +162,77 @@ function parseDescription(value) {
 }
 
 function splitItems(value) {
-  if (!value) {
-    return []
-  }
+  if (!value) return []
 
   return value
-    .split(
-      /(?:\r?\n)+|;\s*/
-    )
-    .map(
-      (item) =>
-        item
-          .replace(
-            /^[•●▪◦\-]+\s*/,
-            ''
-          )
-          .trim()
-    )
+    .split(/(?:\r?\n)+|;\s*/)
+    .map((item) => item.replace(/^[•●▪◦\-]+\s*/, '').trim())
     .filter(Boolean)
 }
 
 function uniqueItems(items) {
-  return [
-    ...new Set(
-      items.filter(Boolean)
-    ),
-  ]
+  return [...new Set(items.filter(Boolean))]
 }
 
 function getStructuredDescription(measure) {
-  const raw =
-    normalizeText(
-      measure?.rawDescription
-      || measure?.sourceDescription
-      || ''
-    )
-
-  const parsedRaw =
-    parseDescription(
-      raw
-    )
-
-  const existing =
-    measure?.descriptionParts
-    || {}
-
-  const parsedDescription =
-    parseDescription(
-      measure?.description
-    )
+  const raw = normalizeText(measure?.rawDescription || measure?.sourceDescription || '')
+  const parsedRaw = parseDescription(raw)
+  const existing = measure?.descriptionParts || {}
+  const parsedDescription = parseDescription(measure?.description)
 
   return {
-    what:
-      parsedRaw.what
-      || existing.what
-      || parsedDescription.what
-      || '',
-
-    who:
-      parsedRaw.who
-      || existing.who
-      || parsedDescription.who
-      || '',
-
-    criteria:
-      parsedRaw.criteria
-      || existing.criteria
-      || parsedDescription.criteria
-      || '',
-
-    amountText:
-      parsedRaw.amountText
-      || existing.amountText
-      || parsedDescription.amountText
-      || '',
-
-    application:
-      parsedRaw.application
-      || existing.application
-      || parsedDescription.application
-      || '',
-
-    where:
-      parsedRaw.where
-      || existing.where
-      || parsedDescription.where
-      || '',
+    what: parsedRaw.what || existing.what || parsedDescription.what || '',
+    who: parsedRaw.who || existing.who || parsedDescription.who || '',
+    criteria: parsedRaw.criteria || existing.criteria || parsedDescription.criteria || '',
+    amountText: parsedRaw.amountText || existing.amountText || parsedDescription.amountText || '',
+    application: parsedRaw.application || existing.application || parsedDescription.application || '',
+    where: parsedRaw.where || existing.where || parsedDescription.where || '',
   }
 }
 
-function DetailBlock({
-  title,
-  children,
-}) {
+function DetailBlock({ title, children }) {
   return (
     <div className="card sec">
-      <div className="sec__title">
-        {title}
-      </div>
-
+      <div className="sec__title">{title}</div>
       {children}
     </div>
   )
 }
 
 export default function MeasureDetail() {
-  const { id } =
-    useParams()
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const { results, support, updateSupport, showToast } = useApp()
+  const [sheetOpen, setSheetOpen] = useState(false)
 
-  const navigate =
-    useNavigate()
+  const measure = results?.matched?.find((item) => String(item.id) === String(id))
 
-  const {
-    results,
-    support,
-    updateSupport,
-    showToast,
-  } = useApp()
-
-  const [sheetOpen, setSheetOpen] =
-    useState(false)
-
-  const measure =
-    results?.matched?.find(
-      (item) =>
-        String(item.id)
-        === String(id)
-    )
+  const details = useMemo(() => getStructuredDescription(measure), [measure])
+  const conditions = useMemo(() => splitItems(details.criteria), [details.criteria])
+  const amountDetails = useMemo(() => splitItems(details.amountText), [details.amountText])
+  const whereItems = useMemo(
+    () => uniqueItems(details.where ? details.where.split(/\s*\/\s*/).map((item) => item.trim()) : []),
+    [details.where]
+  )
 
   useEffect(() => {
-    if (!measure) {
-      return undefined
+    if (!measure) return undefined
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') setSheetOpen(false)
     }
 
-    const handleEscape =
-      (event) => {
-        if (
-          event.key
-          === 'Escape'
-        ) {
-          setSheetOpen(false)
-        }
-      }
-
-    window.addEventListener(
-      'keydown',
-      handleEscape
-    )
-
-    return () =>
-      window.removeEventListener(
-        'keydown',
-        handleEscape
-      )
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
   }, [measure])
 
   if (!measure) {
     return (
       <div className="page">
         <div className="empty card">
-          <h3>
-            Мера не найдена
-          </h3>
-
-          <p className="p muted">
-            Вернитесь к результатам
-            и выполните подбор ещё раз.
-          </p>
-
-          <button
-            className="btn btn--primary"
-            type="button"
-            onClick={() =>
-              navigate('/results')
-            }
-          >
+          <h3>Мера не найдена</h3>
+          <p className="p muted">Вернитесь к результатам и выполните подбор ещё раз.</p>
+          <button className="btn btn--primary" type="button" onClick={() => navigate('/results')}>
             К результатам
           </button>
         </div>
@@ -437,72 +240,27 @@ export default function MeasureDetail() {
     )
   }
 
-  const state =
-    support[measure.id]
-    || {
-      status: 'NOT_APPLIED',
-      reminder: false,
-    }
+  const state = support[measure.id] || { status: 'NOT_APPLIED', reminder: false }
 
-  const details =
-    getStructuredDescription(
-      measure
-    )
-
-  const conditions =
-    splitItems(
-      details.criteria
-    )
-
-  const amountDetails =
-    splitItems(
-      details.amountText
-    )
-
-  const whereItems =
-    uniqueItems(
-      details.where
-        ? details.where
-            .split(/\s*\/\s*/)
-            .map(
-              (item) =>
-                item.trim()
-            )
-        : []
-    )
-
-  const channelLabel =
-    CHANNEL_LABELS[
-      measure.channel
-    ]
+  const channelLabel = CHANNEL_LABELS[measure.channel]
     || measure.channelLabel
-    || LABELS.channel[
-      measure.channel
-    ]
+    || LABELS.channel[measure.channel]
     || measure.channel
     || 'Официальный канал'
 
-  const channelHelp =
-    CHANNEL_HELP[
-      measure.channel
-    ]
+  const channelHelp = CHANNEL_HELP[measure.channel]
     || 'Уточните порядок оформления по условиям конкретной меры.'
+
+  const channelIcon = CHANNEL_ICON[measure.channel] || '📍'
 
   const apply = () => {
     if (measure.actionUrl) {
-      const opened =
-        openLink(
-          measure.actionUrl
-        )
+      const opened = openLink(measure.actionUrl)
 
       if (opened) {
-        showToast(
-          'Открыли официальный источник. Перед обращением проверьте актуальные условия.'
-        )
+        showToast('Открыли официальный источник. Перед обращением проверьте актуальные условия.')
       } else {
-        showToast(
-          'Не удалось открыть официальный источник.'
-        )
+        showToast('Не удалось открыть официальный источник.')
       }
 
       return
@@ -511,344 +269,189 @@ export default function MeasureDetail() {
     setSheetOpen(true)
   }
 
+  // FIX (ответ на вопрос про уведомления): кнопка «Напомнить о сроке»
+  // сейчас переключает только локальный флаг reminder в этом браузере —
+  // никакого реального сообщения в MAX за 7 дней до дедлайна не
+  // отправляется (это соответствует MVP-ограничению продукта: реальные
+  // напоминания — часть дальнейшего развития, не текущего фронтенда).
+  // Явно сообщаем об этом пользователю в toast, чтобы не создавать
+  // иллюзию работающих push-уведомлений.
+  const toggleReminder = () => {
+    const next = !state.reminder
+    updateSupport(measure.id, { reminder: next })
+    showToast(
+      next
+        ? 'Напоминание сохранено на этом устройстве. Реальная отправка уведомлений появится позже.'
+        : 'Напоминание отключено.'
+    )
+  }
+
   return (
     <div className="page detail">
       <div className="mcard__top">
         {measure.level && (
-          <span className="chip chip--level">
-            {
-              LABELS.level[
-                measure.level
-              ]
-              || measure.level
-            }
-          </span>
+          <span className="chip chip--level">{LABELS.level[measure.level] || measure.level}</span>
         )}
 
         {measure.supportType && (
-          <span className="chip">
-            {
-              LABELS.supportType[
-                measure.supportType
-              ]
-              || measure.supportType
-            }
-          </span>
+          <span className="chip">{LABELS.supportType[measure.supportType] || measure.supportType}</span>
         )}
 
         <span className="chip chip--blue">
-          {
-            LABELS.recipient[
-              measure.recipient
-            ]
-            || measure.recipient
-            || 'Семье'
-          }
+          {LABELS.recipient[measure.recipient] || measure.recipient || 'Семье'}
         </span>
       </div>
 
-      <h1 className="detail__h1">
-        {measure.name}
-      </h1>
+      <h1 className="detail__h1">{measure.name}</h1>
 
       {details.what && (
         <DetailBlock title="Что предоставляется">
-          <div className="detail-copy">
-            {details.what}
-          </div>
+          <div className="detail-copy">{details.what}</div>
         </DetailBlock>
       )}
 
-      {(
-        measure.amount != null
-        || amountDetails.length > 0
-      ) && (
+      {(measure.amount != null || amountDetails.length > 0) && (
         <DetailBlock title="Размер">
           {measure.amount != null && (
-            <Money
-              amount={
-                measure.amount
-              }
-              frequency={
-                measure.frequency
-              }
-            />
+            <Money amount={measure.amount} frequency={measure.frequency} />
           )}
 
           {amountDetails.length > 0 && (
-            <div
-              className="ptiles"
-              style={{
-                marginTop:
-                  measure.amount != null
-                    ? '8px'
-                    : '0',
-              }}
-            >
-              {amountDetails.map(
-                (item, index) => (
-                  <div
-                    className="ptile"
-                    key={`${item}-${index}`}
-                  >
-                    <span>
-                      Размер / вид поддержки
-                    </span>
-
-                    <b>
-                      {item}
-                    </b>
-                  </div>
-                )
-              )}
+            <div className="ptiles" style={{ marginTop: measure.amount != null ? '8px' : '0' }}>
+              {amountDetails.map((item, index) => (
+                <div className="ptile" key={`${item}-${index}`}>
+                  <span>Размер / вид поддержки</span>
+                  <b>{item}</b>
+                </div>
+              ))}
             </div>
           )}
         </DetailBlock>
       )}
 
-      {(
-        details.who
-        || conditions.length > 0
-      ) && (
-        <DetailBlock
-          title="Условия получения"
-        >
+      {(details.who || conditions.length > 0) && (
+        <DetailBlock title="Условия получения">
           <div className="ptiles">
             {details.who && (
               <div className="ptile questionnaire-wide">
-                <span>
-                  Кому положено
-                </span>
-
-                <b>
-                  {details.who}
-                </b>
+                <span>Кому положено</span>
+                <b>{details.who}</b>
               </div>
             )}
           </div>
 
           {conditions.length > 0 && (
             <ul className="docs">
-              {conditions.map(
-                (condition, index) => (
-                  <li
-                    key={
-                      `${condition}-${index}`
-                    }
-                  >
-                    <span className="check-box">
-                      •
-                    </span>
-
-                    <span>
-                      {condition}
-                    </span>
-                  </li>
-                )
-              )}
+              {conditions.map((condition, index) => (
+                <li key={`${condition}-${index}`}>
+                  <span className="check-box">•</span>
+                  <span>{condition}</span>
+                </li>
+              ))}
             </ul>
           )}
         </DetailBlock>
       )}
 
-      <DetailBlock
-        title="Куда обращаться"
-      >
+      <DetailBlock title="Куда обращаться">
         <div className="route-card">
-          <div className="route-card__icon">
-            ↗
-          </div>
-
+          <div className="route-card__icon" aria-hidden="true">{channelIcon}</div>
           <div>
-            <strong>
-              {channelLabel}
-            </strong>
-
-            <span>
-              {whereItems.length > 0
-                ? whereItems.join(' · ')
-                : channelHelp}
-            </span>
+            <strong>{channelLabel}</strong>
+            <span>{whereItems.length > 0 ? whereItems.join(' · ') : channelHelp}</span>
           </div>
         </div>
       </DetailBlock>
 
       {details.application && (
-        <DetailBlock
-          title="Подача заявления"
-        >
-          <div className="detail-copy">
-            {details.application}
-          </div>
+        <DetailBlock title="Подача заявления">
+          <div className="detail-copy">{details.application}</div>
         </DetailBlock>
       )}
 
       {measure.documents?.length > 0 && (
-        <DetailBlock
-          title="Что подготовить"
-        >
+        <DetailBlock title="Что подготовить">
           <ul className="docs">
-            {measure.documents.map(
-              (document) => (
-                <li key={document}>
-                  <span className="check-box">
-                    □
-                  </span>
-
-                  <span>
-                    {document}
-                  </span>
-                </li>
-              )
-            )}
+            {measure.documents.map((document) => (
+              <li key={document}>
+                <span className="check-box">□</span>
+                <span>{document}</span>
+              </li>
+            ))}
           </ul>
         </DetailBlock>
       )}
 
       {measure.npa?.length > 0 && (
-        <DetailBlock
-          title="Правовое основание"
-        >
+        <DetailBlock title="Правовое основание">
           <div className="npa">
-            {measure.npa.map(
-              (item, index) => (
-                <button
-                  className="link-row"
-                  type="button"
-                  key={
-                    `${item.name}-${index}`
+            {measure.npa.map((item, index) => (
+              <button
+                className="link-row"
+                type="button"
+                key={`${item.name}-${index}`}
+                onClick={() => {
+                  if (!openLink(item.url)) {
+                    showToast('Ссылка на источник недоступна.')
                   }
-                  onClick={() => {
-                    if (
-                      !openLink(
-                        item.url
-                      )
-                    ) {
-                      showToast(
-                        'Ссылка на источник недоступна.'
-                      )
-                    }
-                  }}
-                >
-                  <span>
-                    {item.name}
-                  </span>
-
-                  <span>
-                    ↗
-                  </span>
-                </button>
-              )
-            )}
+                }}
+              >
+                <span>{item.name}</span>
+                <span>↗</span>
+              </button>
+            ))}
           </div>
         </DetailBlock>
       )}
 
       {measure.validTo && (
         <DetailBlock title="Срок">
-          <p className="p">
-            Подать до{' '}
-            {formatDate(
-              measure.validTo
-            )}
-          </p>
+          <p className="p">Подать до {formatDate(measure.validTo)}</p>
         </DetailBlock>
       )}
 
-      <DetailBlock
-        title="Статус в кабинете"
-      >
+      <DetailBlock title="Статус в кабинете">
         <StatusSwitch
-          value={
-            state.status
-          }
-          onChange={(value) =>
-            updateSupport(
-              measure.id,
-              {
-                status: value,
-              }
-            )
-          }
+          value={state.status}
+          onChange={(value) => updateSupport(measure.id, { status: value })}
         />
 
         <button
           className="btn btn--ghost btn--sm"
           type="button"
-          onClick={() =>
-            updateSupport(
-              measure.id,
-              {
-                reminder:
-                  !state.reminder,
-              }
-            )
-          }
+          onClick={toggleReminder}
         >
-          {state.reminder
-            ? 'Напоминание включено'
-            : 'Напомнить о сроке'}
+          {state.reminder ? 'Напоминание включено' : 'Напомнить о сроке'}
         </button>
       </DetailBlock>
 
       <p className="disclaimer">
-        Окончательное решение
-        о предоставлении меры принимает
-        уполномоченный орган.
+        Окончательное решение о предоставлении меры принимает уполномоченный орган.
+        Zабота не является государственным сервисом и не гарантирует назначение меры —
+        подбор носит справочный характер, а условия следует проверить по первоисточнику
+        перед обращением.
       </p>
 
       <div className="actionbar">
-        <button
-          className="btn btn--primary"
-          type="button"
-          onClick={apply}
-        >
-          {measure.actionUrl
-            ? 'Открыть официальный источник'
-            : 'Как оформить'}
+        <button className="btn btn--primary" type="button" onClick={apply}>
+          {measure.actionUrl ? 'Открыть официальный источник' : 'Как оформить'}
         </button>
       </div>
 
-      <Sheet
-        open={sheetOpen}
-        onClose={() =>
-          setSheetOpen(false)
-        }
-        title="Как оформить"
-      >
+      <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="Как оформить">
         <div className="sheet__form">
           <p className="p">
-            Документы и заявление
-            подаются по официальному каналу.
-            Подготовьте документы из списка выше
-            и следуйте инструкции.
+            Документы и заявление подаются по официальному каналу.
+            Подготовьте документы из списка выше и следуйте инструкции.
           </p>
 
           <ol className="steps-list">
-            <li>
-              Подготовьте документы,
-              перечисленные в карточке меры.
-            </li>
-
-            <li>
-              {details.where
-                || channelHelp}
-            </li>
-
-            <li>
-              После подачи вернитесь
-              в профиль и установите
-              актуальный статус меры.
-            </li>
+            <li>Подготовьте документы, перечисленные в карточке меры.</li>
+            <li>{details.where || channelHelp}</li>
+            <li>После подачи вернитесь в профиль и установите актуальный статус меры.</li>
           </ol>
 
-          <button
-            className="btn btn--primary btn--lg"
-            type="button"
-            onClick={() =>
-              setSheetOpen(false)
-            }
-          >
+          <button className="btn btn--primary btn--lg" type="button" onClick={() => setSheetOpen(false)}>
             Понятно
           </button>
         </div>

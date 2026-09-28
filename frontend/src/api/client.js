@@ -13,10 +13,16 @@ export async function apiFetch(path, options = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
+  const onExternalAbort = () => controller.abort()
+  if (options.signal) {
+    if (options.signal.aborted) controller.abort()
+    else options.signal.addEventListener('abort', onExternalAbort)
+  }
+
   try {
     const response = await fetch(`${BASE}/api${path}`, {
       ...options,
-      signal: options.signal || controller.signal,
+      signal: controller.signal,
       headers: buildHeaders(options),
     })
 
@@ -42,6 +48,9 @@ export async function apiFetch(path, options = {}) {
     }
   } catch (error) {
     if (error?.name === 'AbortError') {
+      if (options.signal?.aborted) {
+        throw error
+      }
       throw new Error('Сервер не ответил вовремя. Проверьте доступность backend.')
     }
 
@@ -52,5 +61,6 @@ export async function apiFetch(path, options = {}) {
     throw error
   } finally {
     clearTimeout(timer)
+    if (options.signal) options.signal.removeEventListener('abort', onExternalAbort)
   }
 }

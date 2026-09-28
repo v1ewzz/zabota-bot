@@ -59,9 +59,10 @@ export default function Layout({ children }) {
       return undefined
     }
 
-    showBackButton(handleBack)
-    return () => hideBackButton(handleBack)
-  }, [pathname, backTarget, isHome, isAccount])
+    const onBack = () => navigate(backTarget)
+    showBackButton(onBack)
+    return () => hideBackButton(onBack)
+  }, [pathname, backTarget, isHome, isAccount, navigate])
 
   return (
     <div className={`app${showBottomNav ? ' app--with-nav' : ''}`}>

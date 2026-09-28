@@ -3,6 +3,12 @@ import * as backend from './backend'
 
 const USE_MOCK = String(import.meta.env.VITE_USE_MOCK ?? 'false').toLowerCase() === 'true'
 
+if (USE_MOCK && import.meta.env.PROD) {
+  console.warn(
+    '[zabota] VITE_USE_MOCK=true в production-сборке — используются тестовые данные каталога вместо реального backend.'
+  )
+}
+
 export default {
   runMatch: USE_MOCK ? mock.runMatch : backend.runMatch,
   updateUserSupport: USE_MOCK

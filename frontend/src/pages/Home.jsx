@@ -37,6 +37,17 @@ function Icon({ type }) {
   )
 }
 
+const NAME_PATTERN = /^[А-Яа-яЁёA-Za-z][А-Яа-яЁёA-Za-z\s-']*$/
+
+function nameError(value) {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  if (trimmed.length < 2) return 'Слишком короткое — минимум 2 символа'
+  if (!/[А-Яа-яЁёA-Za-z]/.test(trimmed)) return 'Должно содержать буквы'
+  if (!NAME_PATTERN.test(trimmed)) return 'Допустимы только буквы, пробел и дефис'
+  return ''
+}
+
 export default function Home() {
   const navigate =
     useNavigate()
@@ -89,10 +100,16 @@ export default function Home() {
       ]
     )
 
+  const firstNameError =
+    nameError(firstName)
+
+  const lastNameError =
+    nameError(lastName)
+
   const canContinue =
     Boolean(
-      firstName.trim()
-      && lastName.trim()
+      !firstNameError
+      && !lastNameError
       && consent
     )
 
@@ -186,7 +203,19 @@ export default function Home() {
               placeholder="Иван"
               autoComplete="given-name"
               maxLength={60}
+              aria-invalid={
+                Boolean(
+                  firstName
+                  && firstNameError
+                )
+              }
             />
+
+            {firstName && firstNameError && (
+              <span className="field__error">
+                {firstNameError}
+              </span>
+            )}
           </label>
 
           <label className="field">
@@ -205,7 +234,19 @@ export default function Home() {
               placeholder="Иванов"
               autoComplete="family-name"
               maxLength={80}
+              aria-invalid={
+                Boolean(
+                  lastName
+                  && lastNameError
+                )
+              }
             />
+
+            {lastName && lastNameError && (
+              <span className="field__error">
+                {lastNameError}
+              </span>
+            )}
           </label>
         </div>
       </section>
@@ -267,7 +308,7 @@ export default function Home() {
           </strong>
 
           <small>
-            учитываем статус, регион,
+            Учитываем статус, регион,
             детей и обстоятельства
           </small>
         </div>
@@ -282,7 +323,7 @@ export default function Home() {
           </strong>
 
           <small>
-            имя и фамилия используются
+            Имя и фамилия используются
             внутри приложения
           </small>
         </div>
@@ -297,7 +338,7 @@ export default function Home() {
           </strong>
 
           <small>
-            можно изменить ответы
+            Можно изменить ответы
             и пересчитать результат
           </small>
         </div>
