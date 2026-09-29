@@ -472,12 +472,12 @@ checks:
   - id: D-04-NOT-FOUND-UUID
     title: "Несуществующий UUID записи -> 404"
     method: GET
-    path: /api/regions/{randomUuid}
+    path: /api/regions/{id}
     params:
       - in: path
-        name: randomUuid
+        name: id
         type: uuid
-        note: "Например 00000000-0000-0000-0000-000000000000"
+        note: "Заведомо несуществующий UUID, например 00000000-0000-0000-0000-000000000000"
     role: anonymous
     expected:
       status: 404
@@ -540,13 +540,14 @@ checks:
         note: "validationErrors содержит поля: firstName, lastName, regionId, municipalityId"
 
   - id: D-08-USER-NOT-FOUND
-    title: "Несуществующий userId -> 404"
+    title: "Несуществующий идентификатор пользователя -> 404"
     method: GET
-    path: /api/users/{randomUuid}
+    path: /api/users/{id}
     params:
       - in: path
-        name: randomUuid
+        name: id
         type: uuid
+        note: "Заведомо несуществующий UUID"
     role: anonymous
     expected:
       status: 404
