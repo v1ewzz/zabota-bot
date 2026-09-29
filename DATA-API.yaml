@@ -23,18 +23,21 @@ config_version: "1.0"
 solution:
   name: "Zabota Bot"
   description: "Сервис подбора мер социальной поддержки для семей участников СВО: справочники, анкета семьи, алгоритмический подбор мер по критериям, персональный статус оформления, выгрузка сводки."
-  source: "https://github.com/zabota-2026/zabota-bot"
+  source: "https://github.com/v1ewzz/zabota-bot"
   team_id: "zabota-2026"
 
 # ---- п.3: базовый адрес API -------------------------------------------------
 # Один плейсхолдер на файл: заменяя эту строку, можно переключить все проверки
 # на другой стенд (например, http://localhost:8080).
-base_url: "${BASE_URL:https://piska-bobra.cloudpub.ru}"
+base_url: "${BASE_URL:https://zabota-bot-viewzz.amvera.io}"
 
 # ---- п.4–п.9: перечень обязательных проверок ---------------------------------
 # Каждая проверка определяет метод, путь, параметры, роль и ожидания.
-# Роль anonymous во всех проверках: авторизация в сервисе не реализована
-# (подробнее — SUBMISSION.md, п.3).
+# Роль anonymous во всех проверках: авторизация в сервисе не реализована —
+# в проекте нет spring-boot-starter-security, JWT/RBAC и сессий; в OpenAPI
+# объявлена схема bearerAuth, но она нигде не проверяется (задел на будущее).
+# Поэтому тестовые учётные записи не требуются, а идентификация пользователя
+# выполняется платформой MAX на стороне Mini App.
 checks:
 
   # ==========================================================================
@@ -94,8 +97,12 @@ checks:
   - id: A-04-EDUCATION-LEVELS
     title: "Значения справочника EDUCATION_LEVEL"
     method: GET
-    path: /api/dictionaries/by-code/EDUCATION_LEVEL/values
-    params: []
+    path: /api/dictionaries/by-code/{code}/values
+    params:
+      - in: path
+        name: code
+        type: string
+        note: "Пример: EDUCATION_LEVEL (код справочника из A-03)"
     role: anonymous
     expected:
       status: 200
@@ -169,12 +176,12 @@ checks:
   - id: B-02-REGION-GET
     title: "Чтение созданного региона"
     method: GET
-    path: /api/regions/{regionId}
+    path: /api/regions/{id}
     params:
       - in: path
-        name: regionId
+        name: id
         type: uuid
-        note: "Из ответа B-01"
+        note: "Из ответа B-01 (значение поля regionId)"
     role: anonymous
     expected:
       status: 200
@@ -186,10 +193,10 @@ checks:
   - id: B-03-REGION-UPDATE
     title: "Обновление региона"
     method: PUT
-    path: /api/regions/{regionId}
+    path: /api/regions/{id}
     params:
       - in: path
-        name: regionId
+        name: id
         type: uuid
       - in: body
         name: RegionRequest
@@ -206,10 +213,10 @@ checks:
   - id: B-04-REGION-DELETE
     title: "Удаление региона (очистка)"
     method: DELETE
-    path: /api/regions/{regionId}
+    path: /api/regions/{id}
     params:
       - in: path
-        name: regionId
+        name: id
         type: uuid
     role: anonymous
     expected:
@@ -256,12 +263,12 @@ checks:
   - id: C-03-USER-GET
     title: "Чтение анкеты пользователя"
     method: GET
-    path: /api/users/{userId}
+    path: /api/users/{id}
     params:
       - in: path
-        name: userId
+        name: id
         type: uuid
-        note: "Из C-01"
+        note: "Из C-01 (значение поля userId)"
     role: anonymous
     expected:
       status: 200
@@ -273,10 +280,10 @@ checks:
   - id: C-04-USER-PROFILE-UPDATE
     title: "Редактирование анкеты (профиля)"
     method: PUT
-    path: /api/users/{userId}/profile
+    path: /api/users/{id}/profile
     params:
       - in: path
-        name: userId
+        name: id
         type: uuid
       - in: body
         name: UserUpdateRequest
@@ -286,7 +293,7 @@ checks:
     expected:
       status: 200
       content_type: application/json
-      err_status_404: "несуществующий userId"
+      err_status_404: "несуществующий идентификатор пользователя"
       response:
         type: object
         note: "Обновлённая анкета"
@@ -377,32 +384,36 @@ checks:
            "submittedAt":"2026-09-28T15:07:28.134364","checkedAt":"2026-09-28T15:07:28.150745"}
 
   - id: C-09-PDF-SUMMARY
-    title: "Выгрузка сводки мер в PDF (отправка в MAX — бэклог)"
+    title: "Выгрузка сводки мер в PDF и отправка в чат MAX"
     method: POST
     path: /api/users/{userId}/pdf-summary
     params:
       - in: path
         name: userId
         type: uuid
+        note: "Из C-01"
+      - in: body
+        name: PdfSummaryRequest
+        content_type: application/json
+        required: false
+        note: "Тело необязательно; при передаче указывается maxUserId, которому бот отправит файл"
     role: anonymous
     expected:
-      status: 422
-      content_type: application/json
-      note: "Осознанный статус: PDF генерируется, но фактическое отправление сводки в мессенджер MAX ещё в бэклоге (см. SUBMISSION.md, п.4). 422 — понятная машиночитаемая ошибка, сервис жив и отвечает корректным форматом."
+      status: 202
+      content_type: none
+      note: "PDF формируется по сохранённому профилю и отправляется ботом в чат MAX; успех фиксируется кодом 202 без тела (см. PdfSummaryController)."
       response:
-        type: object
-        example: |
-          {"timestamp":"2026-09-28T15:07:53.099595155","status":422,
-           "error":"Unprocessable Entity","message":"...",
-           "path":"/api/users/{userId}/pdf-summary","validationErrors":null}
+        note: "Пустое тело"
+      err_status_404: "несуществующий userId"
+      err_status_422: "не удалось отправить файл (например, не определён чат MAX) - тело в формате ошибки"
 
   - id: C-10-USER-DELETE
     title: "Удаление пользователя (очистка тестовых данных)"
     method: DELETE
-    path: /api/users/{userId}
+    path: /api/users/{id}
     params:
       - in: path
-        name: userId
+        name: id
         type: uuid
         note: "Допускается удаление после C-08; каскадно подчищает связанные записи подбора"
     role: anonymous
@@ -456,7 +467,7 @@ checks:
       content_type: application/json
       response:
         type: object
-        note: "Параметр regionId ожидает UUID"
+        note: "Параметр id ожидает UUID"
 
   - id: D-04-NOT-FOUND-UUID
     title: "Несуществующий UUID записи -> 404"
