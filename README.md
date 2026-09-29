@@ -938,7 +938,7 @@ https://zabota-bot-viewzz.amvera.io/
 Версия, подготовленная к проверке, помечена тегом:
 
 ```text
-v1.0-hackathon
+v1.0-hackathon = 4e8c0a3ef9c898791dfc02bdc92a337d47d3356a
 ```
 
 Репозиторий:
