@@ -185,6 +185,8 @@ zabota-bot/
 ├── .env.example
 ├── DATA-API.yaml
 ├── openapi.json
+├── package-lock.json
+├── dependencies.txt
 └── README.md
 ```
 
@@ -216,6 +218,34 @@ Backend реализован на Java 21 и Spring Boot 4.1.1.
 - Springdoc OpenAPI 3.1.1;
 - JUnit / Spring Boot Test;
 - Testcontainers PostgreSQL.
+
+Файлы, фиксирующие используемые библиотеки и версии, лежат в корне репозитория:
+
+| Стек | Файл | Что фиксирует |
+| --- | --- | --- |
+| Frontend (npm) | `package-lock.json` | копия `frontend/package-lock.json` — 113 пакетов с точными версиями |
+| Backend (Maven) | `dependencies.txt` | все 156 разрешённых артефактов с версиями и scope: `группа:артефакт:тип:версия:scope` |
+
+`frontend/package-lock.json` — источник истины для npm: его использует `npm ci` в
+`Dockerfile` и в локальной разработке фронта, поэтому он остаётся рядом с
+`frontend/package.json`. Корневой `package-lock.json` — его копия для проверяющего.
+Если локфайл фронта изменился, синхронизируйте копию:
+
+```bash
+cp frontend/package-lock.json package-lock.json
+```
+
+`dependencies.txt` сгенерирован из `backend/pom.xml` и включает транзитивные
+зависимости, версии которых наследуются от `spring-boot-starter-parent 4.1.1`
+(в `pom.xml` 14 из 20 прямых зависимостей идут без явной версии).
+Перегенерация:
+
+```bash
+cd backend
+./mvnw dependency:list -DincludeScope=test -DoutputFile=../dependencies.txt -DappendOutput=false
+```
+
+Инструменты: Java 21, Maven 3.9.16, Node.js 20, PostgreSQL 16.
 
 Основные слои backend:
 
@@ -948,6 +978,9 @@ backend/mvnw.cmd
 frontend/package.json
 frontend/package-lock.json
 
+package-lock.json
+dependencies.txt
+
 openapi.json
 DATA-API.yaml
 
@@ -956,6 +989,10 @@ test-data/payloads/user-update-status.json
 ```
 
 Они позволяют собрать приложение, поднять локальную инфраструктуру, проверить API и воспроизвести основной пользовательский сценарий.
+
+Файлы зависимостей: `frontend/package-lock.json` (источник истины для `npm ci`)
+и `dependencies.txt` (все разрешённые зависимости backend). Копия локфайла фронта
+продублирована в корне как `package-lock.json`.
 
 ## 26. Документация API
 
